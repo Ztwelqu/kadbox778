@@ -282,6 +282,11 @@ body{font-size:13px}
 .profitGrid{grid-template-columns:repeat(4,1fr)}
 #autoProfit{color:var(--o)}
 #washProfit{color:#8db8ff}
+.common-profit-card{transition:background .18s,border-color .18s,box-shadow .18s}
+.common-profit-card.common-profit-confirmed{background:linear-gradient(145deg,#173b24,#102318);border-color:#36e66f;box-shadow:0 0 0 2px rgba(54,230,111,.55),0 0 28px rgba(54,230,111,.22)}
+.common-profit-card.common-profit-confirmed .big{color:#69ff8d!important}
+.common-profit-btn{margin-top:10px;min-width:104px}
+.common-profit-card.common-profit-confirmed .common-profit-btn{background:#2bd95d;border-color:#2bd95d;color:#07140b;font-weight:900}
 @media(max-width:1200px){.profitGrid{grid-template-columns:repeat(2,1fr)}}
 @media(max-width:900px){.profitGrid{grid-template-columns:1fr}}
 
@@ -338,7 +343,7 @@ body{font-size:13px}
 </div>
 <div id="authRoleBadge" class="badge auth-role-badge"></div>
 <div class="app"><aside class="side"><div class="logo">КАД <span>Бокс778</span></div><div class="nav"><button class="active" data-page="dashboard">🏠 Главная</button><button data-page="orders">📋 Заказы</button><button data-page="appointments">📅 Записи</button><button data-page="staff" data-admin-only="1">💰 Сотрудники</button><button data-page="consumables">🧴 Расходники</button><button data-page="trash" data-admin-only="1">🗑️ Корзина <span id="trashCount" class="trashBadge">0</span></button><button data-page="settings" data-admin-only="1">⚙️ Справочник и расчёт</button></div><div class="side-footer"><div class="saveState" id="saveState">● Данные сохранены</div><div class="small">Локальное приложение · данные хранятся в этом браузере</div><button id="authLogout" class="btn small auth-logout" onclick="logout()">↪ Выйти из профиля</button></div></aside><main class="main"><header class="top"><div class="title"><h1 id="pageTitle">Главная</h1><p id="pageSub">Учёт ремонта, запчастей, автомойки и прибыли</p></div><div class="actions"><button id="newAppointmentTopBtn" class="btn appointment-top" data-staff-create="1" onclick="addAppointment()">＋ Новая запись</button><button id="newOrderTopBtn" class="btn primary" data-staff-create="1" onclick="startNewOrder()">＋ Новый заказ</button><button id="exportBtn" class="btn" data-admin-only="1" onclick="exportData()">Экспорт</button><button id="importBtn" class="btn" data-admin-only="1" onclick="document.getElementById('importFile').click()">Импорт</button><input id="importFile" type="file" accept=".json" hidden></div></header>
-<section id="dashboard" class="page active"><div class="cards"><div class="card"><div class="k">Заказов за месяц</div><div class="v" id="mOrders">0</div></div><div class="card"><div class="k">Общая выгода</div><div class="v" id="mRevenue">0 ₽</div></div><div class="card"><div class="k">Автосервис — выгода</div><div class="v orange" id="mAutoRevenue">0 ₽</div></div><div class="card"><div class="k">Автомойка — выгода</div><div class="v blue" id="mWashRevenue">0 ₽</div></div></div><div class="panel"><div class="toolbar"><h2>Период</h2><div class="month-picker-wrap"><input id="dashMonth" type="month" hidden><button id="dashMonthBtn" class="month-picker-btn" onclick="toggleMonthPicker(event)">—</button><div id="dashMonthPicker" class="month-picker" onclick="event.stopPropagation()"></div></div></div></div><div class="panel"><h2>Прибыль по подразделениям</h2><div class="profitGrid"><div class="profit"><div class="hint">Автосервис</div><div class="big orange" id="autoProfit">0 ₽</div><div class="hint" id="autoDetail"></div></div><div class="profit"><div class="hint">Автомойка</div><div class="big blue" id="washProfit">0 ₽</div><div class="hint" id="washDetail"></div></div><div class="profit"><div class="hint">Общая прибыль</div><div class="big green" id="netProfit">0 ₽</div><div class="hint" id="netDetail"></div></div><div class="profit"><div class="hint">Общак</div><div class="big" id="commonProfit">0 ₽</div><div class="hint" id="commonDetail">5% от общей прибыли</div></div></div></div><div class="panel"><h2>Кому сколько начислено</h2><div id="dashStaff" class="tablewrap"></div></div><div class="panel"><h2>Последние заказы</h2><div id="recent" class="tablewrap"></div></div></section>
+<section id="dashboard" class="page active"><div class="cards"><div class="card"><div class="k">Заказов за месяц</div><div class="v" id="mOrders">0</div></div><div class="card"><div class="k">Общая выгода</div><div class="v" id="mRevenue">0 ₽</div></div><div class="card"><div class="k">Автосервис — выгода</div><div class="v orange" id="mAutoRevenue">0 ₽</div></div><div class="card"><div class="k">Автомойка — выгода</div><div class="v blue" id="mWashRevenue">0 ₽</div></div></div><div class="panel"><div class="toolbar"><h2>Период</h2><div class="month-picker-wrap"><input id="dashMonth" type="month" hidden><button id="dashMonthBtn" class="month-picker-btn" onclick="toggleMonthPicker(event)">—</button><div id="dashMonthPicker" class="month-picker" onclick="event.stopPropagation()"></div></div></div></div><div class="panel"><h2>Прибыль по подразделениям</h2><div class="profitGrid"><div class="profit"><div class="hint">Автосервис</div><div class="big orange" id="autoProfit">0 ₽</div><div class="hint" id="autoDetail"></div></div><div class="profit"><div class="hint">Автомойка</div><div class="big blue" id="washProfit">0 ₽</div><div class="hint" id="washDetail"></div></div><div class="profit"><div class="hint">Общая прибыль</div><div class="big green" id="netProfit">0 ₽</div><div class="hint" id="netDetail"></div></div><div class="profit common-profit-card" id="commonProfitCard"><div class="hint">Общак</div><div class="big" id="commonProfit">0 ₽</div><div class="hint" id="commonDetail">5% от общей прибыли</div><button id="commonProfitBtn" class="btn small common-profit-btn" type="button" onclick="toggleCommonPaid()">Положено</button></div></div></div><div class="panel"><h2>Кому сколько начислено</h2><div id="dashStaff" class="tablewrap"></div></div><div class="panel"><h2>Последние заказы</h2><div id="recent" class="tablewrap"></div></div></section>
 <section id="orders" class="page"><div class="panel"><div class="toolbar"><div><h2>Заказы</h2><div class="hint">Заказ привязан к записи клиента. Данные автомобиля и клиента берутся из записи.</div></div><input id="orderSearch" class="search" placeholder="Поиск: клиент, автомобиль, VIN, запчасть..." oninput="renderOrders()"></div><div id="ordersTable" class="tablewrap"></div></div></section>
 <section id="appointments" class="page"><div class="panel"><div class="toolbar"><div><h2>Записи клиентов</h2><div class="hint">Сервис работает без выходных. Время записей — с 09:00 до 21:00. Один слот нельзя занять двумя клиентами.</div></div><button class="btn primary" data-staff-create="1" onclick="addAppointment()">＋ Новая запись</button></div><div class="grid" style="margin-bottom:14px"><div class="field"><label>Дата</label><input id="apptDate" type="date" onchange="renderAppointments()"></div><div class="field span2"><label>Быстрый переход</label><div class="inline"><button class="btn small" onclick="shiftApptDate(-1)">← Вчера</button><button class="btn small" onclick="setApptToday()">Сегодня</button><button class="btn small" onclick="shiftApptDate(1)">Завтра →</button></div></div></div><div id="appointmentsTable" class="tablewrap"></div></div></section><section id="new" class="page"><div class="notice">Сначала создай запись во вкладке «Записи», затем выбери её здесь. Данные клиента и автомобиля в заказ отдельно не вводятся — они автоматически подтягиваются из записи.</div><div class="panel"><h2>Запись клиента</h2><div class="grid"><div class="field span4"><label>Выбрать запись *</label><select id="fAppointment" onchange="appointmentSelected()"></select></div><div id="appointmentPreview" class="span4"></div></div></div><div class="panel ops"><div class="toolbar"><h2>Работы и запчасти</h2></div><div id="opList"></div><div class="op-bottom-bar"><button class="btn op-add-bottom" onclick="addOp()">＋ Добавить позицию</button><div class="summary op-summary"><span>Работы: <b id="newWorks">0 ₽</b></span><span>Запчасти: <b id="newParts">0 ₽</b></span><span>Наценка: <b id="newMargin">0 ₽</b></span><span>Итого: <b id="newTotal">0 ₽</b></span></div></div></div><div class="actions"><button class="btn" onclick="showPage('orders')">Отмена</button><button class="btn primary" onclick="saveOrder()">Сохранить заказ</button></div></section><section id="staff" class="page"><div class="panel"><div class="toolbar"><h2>Расчёт сотрудников</h2><div class="month-picker-wrap"><input id="staffMonth" type="month" hidden><button id="staffMonthBtn" class="month-picker-btn" onclick="togglePageMonthPicker(event,'staff')">—</button><div id="staffMonthPicker" class="month-picker" onclick="event.stopPropagation()"></div></div></div><div id="staffTable" class="tablewrap"></div></div></section>
 <section id="consumables" class="page"><div class="panel"><div class="toolbar"><div><h2>Расходники</h2><div class="hint">Стоимость покупок вычитается из прибыли выбранного подразделения.</div></div><button class="btn primary" data-staff-create="1" onclick="addConsumable()">＋ Добавить расход</button></div><div class="grid" style="margin-bottom:14px"><div class="field"><label>Месяц</label><div class="month-picker-wrap"><input id="consMonth" type="month" hidden><button id="consMonthBtn" class="month-picker-btn" onclick="togglePageMonthPicker(event,'cons')">—</button><div id="consMonthPicker" class="month-picker" onclick="event.stopPropagation()"></div></div></div><div class="field"><label>Подразделение</label><select id="consDep" onchange="renderConsumables()"><option value="">Все</option><option>Автосервис</option><option>Автомойка</option></select></div></div><div id="consumablesTable" class="tablewrap"></div></div></section>
@@ -1008,7 +1013,9 @@ function staffTableGrouped(f){
     return `<div class="dash-accrual-grid">${table('Сотрудники',employeesSettled,'employees')}${table('Подразделения',servicesSettled,'departments')}${table('Запчасти',[['Возврат денег на р/сч за запчасти',purchasePending]],'parts')}</div><div class="dash-accrual-total"><span>Всего начислено / к возврату</span><b>${money(f.pending?.total||0)}</b></div>`;
   }
   function finances(m){
-    let f={orders:0,revenue:0,staff:{},partsReimbursement:0,pending:{employees:{},departments:{Автосервис:0,Автомойка:0},parts:0,total:0},settled:{employees:{},departments:{Автосервис:0,Автомойка:0}},d:{Автосервис:{revenue:0,accrual:0,partsCost:0,cons:0,profit:0},Автомойка:{revenue:0,accrual:0,partsCost:0,cons:0,profit:0}}};
+    // Dashboard finance figures are based on actual settlements (money already paid),
+    // while the existing pending/parts-return logic remains unchanged.
+    let f={orders:0,revenue:0,staff:{},partsReimbursement:0,pending:{employees:{},departments:{Автосервис:0,Автомойка:0},parts:0,total:0},settled:{employees:{},departments:{Автосервис:0,Автомойка:0},total:0},d:{Автосервис:{revenue:0,accrual:0,partsCost:0,cons:0,profit:0},Автомойка:{revenue:0,accrual:0,partsCost:0,cons:0,profit:0}}};
     db.orders.filter(o=>inM(o.date,m)).forEach(o=>{
       let c=calcOrder(o);
       f.orders++;
@@ -1019,8 +1026,13 @@ function staffTableGrouped(f){
       settled.items.forEach(row=>{
         const paidAmount=settlementInfo(o,row).amount;
         if(paidAmount<=0.000001)return;
-        if(row.kind==='department') f.settled.departments[row.label]=(f.settled.departments[row.label]||0)+paidAmount;
-        else if(row.kind==='employee') f.settled.employees[row.label]=(f.settled.employees[row.label]||0)+paidAmount;
+        if(row.kind==='department'){
+          f.settled.departments[row.label]=(f.settled.departments[row.label]||0)+paidAmount;
+          f.settled.total+=paidAmount;
+        }else if(row.kind==='employee'){
+          f.settled.employees[row.label]=(f.settled.employees[row.label]||0)+paidAmount;
+          f.settled.total+=paidAmount;
+        }
       });
       f.pending.total+=pending.total;
       f.pending.parts+=pending.parts;
@@ -1030,19 +1042,57 @@ function staffTableGrouped(f){
     });
     f.partsReimbursement=f.pending.parts;
     db.consumables.filter(c=>inM(c.date,m)).forEach(c=>{if(f.d[c.department])f.d[c.department].cons+=num(c.amount)});
+
+    // Department gains/profit are based only on money actually paid to the department.
+    f.d.Автосервис.accrual=f.settled.departments.Автосервис;
+    f.d.Автомойка.accrual=f.settled.departments.Автомойка;
     for(let d of ['Автосервис','Автомойка'])f.d[d].profit=f.d[d].accrual-f.d[d].cons;
-    f.revenue=Object.values(f.staff).reduce((a,b)=>a+b,0);
+
+    // "Общая выгода" = all money actually paid out to employees + both departments.
+    f.revenue=f.settled.total;
+    // "Общая прибыль" = paid Auto Service + paid Car Wash - consumables.
     f.net=f.d.Автосервис.profit+f.d.Автомойка.profit;
     f.common=f.net*0.05;
     return f;
   }
   function renderDashboard(){
-    let f=finances(document.getElementById('dashMonth').value||month()),a=f.d.Автосервис,w=f.d.Автомойка;
-    document.getElementById('mOrders').textContent=f.orders;document.getElementById('mRevenue').textContent=money(f.revenue);document.getElementById('mAutoRevenue').textContent=money(a.accrual);document.getElementById('mWashRevenue').textContent=money(w.accrual);document.getElementById('autoProfit').textContent=money(a.profit);document.getElementById('washProfit').textContent=money(w.profit);document.getElementById('netProfit').textContent=money(f.net);
+    const selectedMonth=document.getElementById('dashMonth').value||month();
+    let f=finances(selectedMonth),a=f.d.Автосервис,w=f.d.Автомойка;
+    document.getElementById('mOrders').textContent=f.orders;
+    document.getElementById('mRevenue').textContent=money(f.revenue);
+    document.getElementById('mAutoRevenue').textContent=money(a.accrual);
+    document.getElementById('mWashRevenue').textContent=money(w.accrual);
+    document.getElementById('autoProfit').textContent=money(a.profit);
+    document.getElementById('washProfit').textContent=money(w.profit);
+    document.getElementById('netProfit').textContent=money(f.net);
     document.getElementById('commonProfit').textContent=money(f.common);
-    document.getElementById('autoDetail').textContent=`Получено автосервисом: ${money(a.accrual)} − расходники ${money(a.cons)}`;document.getElementById('washDetail').textContent=`Получено автомойкой: ${money(w.accrual)} − расходники ${money(w.cons)}`;document.getElementById('netDetail').textContent=`Автосервис ${money(a.accrual)} + Автомойка ${money(w.accrual)} − расходники ${money(a.cons+w.cons)}`;document.getElementById('commonDetail').textContent=`5% от общей прибыли: ${money(f.net)} × 5%`;
-    document.getElementById('dashStaff').innerHTML=staffTableGrouped(f);document.getElementById('recent').innerHTML=ordersTable([...db.orders].sort((a,b)=>String(b.date).localeCompare(String(a.date))).slice(0,8));
+    document.getElementById('autoDetail').textContent=`Расчёт автосервису: ${money(a.accrual)} − расходники ${money(a.cons)}`;
+    document.getElementById('washDetail').textContent=`Расчёт автомойке: ${money(w.accrual)} − расходники ${money(w.cons)}`;
+    document.getElementById('netDetail').textContent=`Автосервис ${money(a.accrual)} + Автомойка ${money(w.accrual)} − расходники ${money(a.cons+w.cons)}`;
+    document.getElementById('commonDetail').textContent=`5% от общей прибыли: ${money(f.net)} × 5%`;
+
+    const commonCard=document.getElementById('commonProfitCard');
+    const commonBtn=document.getElementById('commonProfitBtn');
+    const commonConfirmed=localStorage.getItem('KAD_BOKS778_COMMON_PAID_'+selectedMonth)==='1';
+    if(commonCard)commonCard.classList.toggle('common-profit-confirmed',commonConfirmed);
+    if(commonBtn){commonBtn.textContent=commonConfirmed?'Отменить':'Положено';commonBtn.classList.toggle('danger',commonConfirmed);}
+
+    document.getElementById('dashStaff').innerHTML=staffTableGrouped(f);
+    document.getElementById('recent').innerHTML=ordersTable([...db.orders].sort((a,b)=>String(b.date).localeCompare(String(a.date))).slice(0,8));
   }
+  window.toggleCommonPaid=function(){
+    const selectedMonth=document.getElementById('dashMonth')?.value||month();
+    const key='KAD_BOKS778_COMMON_PAID_'+selectedMonth;
+    const confirmed=localStorage.getItem(key)==='1';
+    if(confirmed){
+      localStorage.removeItem(key);
+      showToast('Общак возвращён в исходное состояние.');
+    }else{
+      localStorage.setItem(key,'1');
+      showToast('Общак отмечен как положено.');
+    }
+    renderDashboard();
+  };
   function ordersTable(a){
     if(!a.length)return'<div class="empty">Заказов пока нет.</div>';
     return`<table class="table"><thead><tr><th>Дата</th><th>Время</th><th>Автомобиль</th><th>Клиент</th><th>Статус оплаты</th><th>Расчёт</th><th>Работы</th><th>Запчасти</th><th>Итого</th><th></th></tr></thead><tbody>${a.map(o=>{let c=calcOrder(o),a=orderAppointment(o),paid=!!a?.paymentReceived,s=payoutStatusClass(o);return`<tr class="${s}"><td>${esc(a?.date||o.date||'')}</td><td>${esc(a?.time||'—')}</td><td><b>${esc(a?.car||o.car||'')}</b><br><span class="hint">${esc(a?.vin||o.vin||'')}</span></td><td>${esc(a?.client||o.client||'')}</td><td>${paid?'<span class="paidBadge">✓ Оплачено</span>'+(a?.paymentMethod?`<span class="hint" style="margin-left:6px">${esc(a.paymentMethod)}</span>`:''):'<span class="unpaidBadge">Не оплачено</span>'}</td><td><span class="settlement-pill ${s}">${payoutStatusLabel(o)}</span></td><td>${money(c.works)}</td><td>${money(c.parts)}</td><td><b>${money(c.total)}</b></td><td><button class="btn small" onclick="openOrder('${o.id}')">Открыть</button></td></tr>`}).join('')}</tbody></table>`;
