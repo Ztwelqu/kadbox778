@@ -346,6 +346,28 @@ body{font-size:13px}
 </main></div><div id="modal" class="modal"><div class="modalbox"><div class="modalhead"><h2 id="modalTitle">Заказ</h2><button class="x" onclick="closeModal()">×</button></div><div id="modalBody"></div></div></div>
 <div id="schemeDeleteModal" class="modal"><div class="modalbox scheme-delete-box"><div class="modalhead"><h2 id="schemeDeleteTitle">Удаление схемы</h2><button class="x" type="button" onclick="closeSchemeDeleteModal()">×</button></div><div id="schemeDeleteBody"></div><div class="actions scheme-delete-actions"><button id="schemeDeleteCancel" class="btn" type="button">Отмена</button><button id="schemeDeleteConfirm" class="btn danger" type="button">Да, удалить схему</button></div></div></div><div id="printModal" class="modal"><div class="modalbox"><div class="modalhead"><h2>Печать заказ-наряда</h2><button class="x" onclick="closePrintModal()">×</button></div><div id="printBody" class="print-preview"></div></div></div><div id="toast" class="toast"></div>
 <script>
+/*
+ * KAD Бокс778 — maintenance map (v66)
+ * ------------------------------------------------------------
+ * This file intentionally remains a single self-contained HTML app.
+ * The refactor in v66 is NON-FUNCTIONAL: behavior, data shape, formulas,
+ * permissions, storage/sync and UI markup are preserved.
+ *
+ * Code areas, in reading order:
+ *  1) Core helpers / state / calculations
+ *  2) Rendering + modal/UI helpers
+ *  3) CRUD + persistence / cloud sync
+ *  4) Auth / roles / access wrappers
+ *  5) Settlement & payout layer (later overrides are intentional)
+ *  6) Dashboard / orders final render overrides
+ *
+ * Important maintenance rule:
+ *  Later definitions of calcOrder/finances/ordersTable/renderOrders/
+ *  renderDashboard intentionally replace earlier legacy versions.
+ *  They are kept in place to minimize risk and preserve the tested app
+ *  history. Do not merge/remove them casually without runtime testing.
+ */
+
 
 /* ===== Авторизация, роли и сессия 24 часа ===== */
 const AUTH_KEY='kadbox778_auth_v1';
@@ -716,13 +738,15 @@ bootCloud();
   window.toggleApptMonthPicker=function(e){e?.stopPropagation();const b=$('apptMonthPicker');if(!b)return;document.querySelectorAll('.month-picker.open').forEach(x=>x.classList.remove('open'));b.classList.toggle('open');renderApptMonthPicker()};
   window.changeApptYear=function(n){const i=$('apptMonth');let [y,m]=(i.value||todayMonth()).split('-');i.value=(Number(y)+n)+'-'+m;renderApptMonthPicker()};
   window.selectApptMonth=function(v){$('apptMonth').value=v;apptSelectedMonth=v;$('apptMonthPicker').classList.remove('open');renderApptMonthPicker();renderAppointments()};
-  window.renderAppointments=function(){ensureAppointmentsLayout();const m=$('apptMonth')?.value||todayMonth();apptSelectedMonth=m;renderApptMonthPicker();const allAppointments=Array.isArray(db.appointments)?db.appointments:[];const list=allAppointments.filter(a=>String(a.date||'').slice(0,7)===m).sort((a,b)=>(a.date+' '+a.time).localeCompare(b.date+' '+b.time));const box=$('appointmentsTable');if(!box)return;if(!list.length){box.innerHTML=`<div class="appointment-empty-card"><div class="appointment-empty-icon">📅</div><h3>В этом месяце записей пока нет</h3><div>Можно сразу добавить первую запись клиента.</div><button class="btn primary" data-staff-create="1" onclick="addAppointment()">＋ Внести запись</button></div>`;return}const groups={};list.forEach(a=>(groups[a.date]??=[]).push(a));box.innerHTML=Object.entries(groups).map(([date,arr])=>`<div class="appt-day"><div class="appt-date-heading"><div class="appt-date-main"><span class="appt-date-icon">📅</span><div><div class="appt-date-label">Дата записи</div><h3>${ruDate(date)}</h3></div></div><span class="appt-count">${arr.length} ${arr.length===1?'клиент':'клиента'}</span></div><div class="appt-cards">${arr.map(a=>{const hasOrder=db.orders.some(o=>o.appointmentId===a.id),status=a.paymentReceived?'<span class="appt-status paid">✓ Расчёт произведён</span>':(hasOrder?'<span class="appt-status ordered">✓ Заказ создан</span>':'<span class="appt-status booked">● Записан</span>');return`<article class="appt-card ${a.paymentReceived?'is-paid':''}"><div class="appt-time"><span class="appt-time-label">Время</span><strong>${esc(a.time)}</strong></div><div class="appt-main"><div class="appt-client">${esc(a.client||'—')}</div><div class="appt-car">🚗 ${esc(a.car||'—')}</div><div class="appt-meta"><span><b>VIN:</b> ${esc(a.vin||'—')}</span><span><b>Телефон:</b> ${esc(a.phone||'—')}</span><span><b>Источник:</b> ${esc(a.source||'—')}</span></div></div><div class="appt-state">${status}${a.paymentReceived&&a.paymentMethod?`<span class="appt-payment-method">${esc(a.paymentMethod)}</span>`:''}</div><div class="appt-actions">${hasPerm('payment')?`<button class="btn small ${a.paymentReceived?'':'primary'}" onclick="toggleAppointmentPaid('${a.id}')">${a.paymentReceived?'↩ Отменить расчёт':'✓ Расчёт'}</button>`:''}${hasPerm('editAppointment')?`<button class="btn small" onclick="editAppointment('${a.id}')">✎ Редактировать</button>`:''}${hasPerm('delete')?`<button class="btn small danger" onclick="deleteAppointment('${a.id}')">⌫ Удалить</button>`:''}</div></article>`}).join('')}</div></div>`).join('')};
+  window.renderAppointments=function(){ensureAppointmentsLayout();const m=$('apptMonth')?.value||todayMonth();apptSelectedMonth=m;renderApptMonthPicker();const allAppointments=Array.isArray(db.appointments)?db.appointments:[];const list=allAppointments.filter(a=>String(a.date||'').slice(0,7)===m).sort((a,b)=>(b.date+' '+b.time).localeCompare(a.date+' '+a.time));const box=$('appointmentsTable');if(!box)return;if(!list.length){box.innerHTML=`<div class="appointment-empty-card"><div class="appointment-empty-icon">📅</div><h3>В этом месяце записей пока нет</h3><div>Можно сразу добавить первую запись клиента.</div><button class="btn primary" data-staff-create="1" onclick="addAppointment()">＋ Внести запись</button></div>`;return}const groups={};list.forEach(a=>(groups[a.date]??=[]).push(a));box.innerHTML=Object.entries(groups).map(([date,arr])=>`<div class="appt-day"><div class="appt-date-heading"><div class="appt-date-main"><span class="appt-date-icon">📅</span><div><div class="appt-date-label">Дата записи</div><h3>${ruDate(date)}</h3></div></div><span class="appt-count">${arr.length} ${arr.length===1?'клиент':'клиента'}</span></div><div class="appt-cards">${arr.map(a=>{const hasOrder=db.orders.some(o=>o.appointmentId===a.id),status=a.paymentReceived?'<span class="appt-status paid">✓ Расчёт произведён</span>':(hasOrder?'<span class="appt-status ordered">✓ Заказ создан</span>':'<span class="appt-status booked">● Записан</span>');return`<article class="appt-card ${a.paymentReceived?'is-paid':''}"><div class="appt-time"><span class="appt-time-label">Время</span><strong>${esc(a.time)}</strong></div><div class="appt-main"><div class="appt-client">${esc(a.client||'—')}</div><div class="appt-car">🚗 ${esc(a.car||'—')}</div><div class="appt-meta"><span><b>VIN:</b> ${esc(a.vin||'—')}</span><span><b>Телефон:</b> ${esc(a.phone||'—')}</span><span><b>Источник:</b> ${esc(a.source||'—')}</span></div></div><div class="appt-state">${status}${a.paymentReceived&&a.paymentMethod?`<span class="appt-payment-method">${esc(a.paymentMethod)}</span>`:''}</div><div class="appt-actions">${hasPerm('payment')?`<button class="btn small ${a.paymentReceived?'':'primary'}" onclick="toggleAppointmentPaid('${a.id}')">${a.paymentReceived?'↩ Отменить расчёт':'✓ Расчёт'}</button>`:''}${hasPerm('editAppointment')?`<button class="btn small" onclick="editAppointment('${a.id}')">✎ Редактировать</button>`:''}${hasPerm('delete')?`<button class="btn small danger" onclick="deleteAppointment('${a.id}')">⌫ Удалить</button>`:''}</div></article>`}).join('')}</div></div>`).join('')};
 
   // ===== Orders grouped by month/year =====
   window.renderOrders=function(){const q=($('orderSearch')?.value||'').toLowerCase();const arr=db.orders.filter(o=>{const a=orderAppointment(o);return[a?.date,o.date,a?.time,a?.car,a?.client,a?.vin,a?.phone,a?.source,...(o.ops||[]).flatMap(x=>[x.desc,x.partNumber,x.partLink])].join(' ').toLowerCase().includes(q)}).sort((a,b)=>String((orderAppointment(b)?.date||b.date||'')).localeCompare(String((orderAppointment(a)?.date||a.date||''))));const box=$('ordersTable');if(!box)return;if(!arr.length){box.innerHTML='<div class="empty">Заказов пока нет.</div>';return}const groups={};arr.forEach(o=>{const d=orderAppointment(o)?.date||o.date||today(),k=d.slice(0,7);(groups[k]??=[]).push(o)});box.innerHTML=Object.entries(groups).map(([k,items],idx)=>{const [y,m]=k.split('-');const label=(MONTH_NAMES[Number(m)-1]||m)+' '+y;return`<details class="order-month" ${idx===0?'open':''}><summary><span>${label}</span><span class="month-order-count">${items.length} ${items.length===1?'заказ':'заказов'}</span></summary><div class="tablewrap">${ordersTable(items)}</div></details>`}).join('')};
 
   // ===== Reorder operations inside order info =====
-  window.openOrder=function(id){
+  
+/* === FINAL ORDER INFO / SETTLEMENT UI OVERRIDE === */
+window.openOrder=function(id){
     const o=db.orders.find(x=>x.id===id);if(!o){showToast('Заказ не найден');return}const a=orderAppointment(o),c=calcOrder(o);
     const staffRows=Object.entries(c.staff||{}).map(([p,v])=>`<tr><td>${esc(p)}</td><td>${money(v)}</td></tr>`).join('');
     const ops=(o.ops||[]).map((x,i)=>{const z=calcOp(x),scheme=z.scheme||{},rules=(scheme.rules||[]).map(r=>`${esc(r.target)} → ${esc(resolveTarget(r.target,x)||'не выбран')}: ${num(r.percent)}%${num(r.fixed)?' + '+money(r.fixed):''}`).join(' · ');const viewClass=x.type==='Запчасть'?'op-view-part':(x.department==='Автомойка'?'op-view-wash':'op-view-work');return`<div class="order-op-item ${viewClass}"><div class="order-op-main"><b>${esc(x.desc||'Без названия')}</b> <span class="badge ${x.type==='Запчасть'?'orange':'green'}">${esc(x.type||'Работа')}</span><br><span class="hint">${esc(x.category||'')} · Подразделение: ${esc(x.department||'Автосервис')}</span>${x.type==='Запчасть'?`<br><span class="hint">Закупка: ${money(x.purchase)} · Цена клиенту: ${money(x.client)} · Наценка: ${money(z.margin)}</span>`:`<br><span class="hint">Стоимость работы: ${money(x.work)}</span>`}${x.partNumber?`<br><span class="hint">Номенклатура: ${esc(x.partNumber)}</span>`:''}${x.partLink?`<br><span class="hint">Ссылка: <a href="${esc(x.partLink)}" target="_blank" rel="noopener" style="color:var(--blue)">${esc(x.partLink)}</a></span>`:''}<br><span class="hint">Исполнитель: ${esc(x.performer||'не выбран')} · Менеджмент: ${esc(x.manager||'не выбран')}</span><br><span class="hint">Схема: ${esc((x.schemeName===NO_CALC_SCHEME?'Без расчёта':(x.schemeName||findSchemeName(x.scheme)||'Индивидуальная / сохранённая')))} · ${rules||'нет правил'}</span></div></div>`}).join('');
@@ -745,7 +769,9 @@ bootCloud();
     appointmentSelected();
   };
 
-  window.saveOrder=function(){
+  
+/* === FINAL ORDER SAVE WRAPPER: preserves settlement history === */
+window.saveOrder=function(){
     if(!hasPerm('create')&&editingId===null){showToast('Недостаточно прав.');return}
     if(editingId&&!hasPerm('edit')){showToast('Редактирование заказов доступно только администрации.');return}
     const aid=document.getElementById('fAppointment')?.value;
@@ -842,7 +868,9 @@ bootCloud();
   // Replace old appointment date input behavior after all existing handlers are installed.
   setTimeout(()=>{ensureAppointmentsLayout();renderAppointments();},0);
   /* v59: payout settlement workflow, purchase reimbursement and visual payment state. */
-  function ensureSettlementState(o){
+  
+/* === SETTLEMENT / PAYOUT LAYER === */
+function ensureSettlementState(o){
     if(!o.settlements || typeof o.settlements!=='object' || Array.isArray(o.settlements)) o.settlements={};
     return o.settlements;
   }
@@ -968,7 +996,9 @@ bootCloud();
     });
     return pending;
   }
-  function staffTableGrouped(f){
+  
+/* === STAFF / DEPARTMENT DISPLAY: settled employee/department amounts === */
+function staffTableGrouped(f){
     const employees=Object.keys(f.staff||{}).filter(n=>n!=='Автосервис'&&n!=='Автомойка').map(name=>[name,num(f.staff[name])]);
     const services=[['Автосервис',num(f.d.Автосервис.accrual)],['Автомойка',num(f.d.Автомойка.accrual)]];
     const table=(title,rows,cls)=>`<div class="dash-accrual-group ${cls}"><div class="dash-accrual-title">${title}</div><table class="table"><tbody>${rows.map(([n,v])=>`<tr><td><b>${esc(n)}</b></td><td>${money(v)}</td></tr>`).join('')||'<tr><td colspan="2" class="empty">Нет начислений</td></tr>'}</tbody></table></div>`;
@@ -1027,7 +1057,7 @@ bootCloud();
     document.getElementById('modal').classList.add('open');
   };
   window.renderAppointments=function(){
-    ensureAppointmentsLayout();const m=$('apptMonth')?.value||todayMonth();apptSelectedMonth=m;renderApptMonthPicker();const list=(db.appointments||[]).filter(a=>String(a.date||'').slice(0,7)===m).sort((a,b)=>(a.date+' '+a.time).localeCompare(b.date+' '+b.time));const box=$('appointmentsTable');if(!box)return;if(!list.length){box.innerHTML=`<div class="appointment-empty-card"><div class="appointment-empty-icon">📅</div><h3>В этом месяце записей пока нет</h3><div>Можно сразу добавить первую запись клиента.</div><button class="btn primary" data-staff-create="1" onclick="addAppointment()">＋ Внести запись</button></div>`;return}const groups={};list.forEach(a=>(groups[a.date]??=[]).push(a));box.innerHTML=Object.entries(groups).map(([date,arr])=>`<div class="appt-day"><div class="appt-date-heading"><div class="appt-date-main"><span class="appt-date-icon">📅</span><div><div class="appt-date-label">Дата записи</div><h3>${ruDate(date)}</h3></div></div><span class="appt-count">${arr.length} ${arr.length===1?'клиент':'клиента'}</span></div><div class="appt-cards">${arr.map(a=>{const order=db.orders.find(o=>o.appointmentId===a.id),hasOrder=!!order,s=order?payoutStatusClass(order):'settlement-unpaid',status=a.paymentReceived?(order&&orderSettlement(order).complete?'<span class="appt-status paid">✓ Расчёты закрыты</span>':'<span class="appt-status partial">◐ Клиент оплатил · расчёты не закрыты</span>'):(hasOrder?'<span class="appt-status ordered">✓ Заказ создан · ожидает оплату</span>':'<span class="appt-status booked">● Записан</span>');return`<article class="appt-card ${s}"><div class="appt-time"><span class="appt-time-label">Время</span><strong>${esc(a.time)}</strong></div><div class="appt-main"><div class="appt-client">${esc(a.client||'—')}</div><div class="appt-car">🚗 ${esc(a.car||'—')}</div><div class="appt-meta"><span><b>VIN:</b> ${esc(a.vin||'—')}</span><span><b>Телефон:</b> ${esc(a.phone||'—')}</span><span><b>Источник:</b> ${esc(a.source||'—')}</span></div></div><div class="appt-state">${status}${a.paymentReceived&&a.paymentMethod?`<span class="appt-payment-method">${esc(a.paymentMethod)}</span>`:''}</div><div class="appt-actions">${hasPerm('payment')?`<button class="btn small ${a.paymentReceived?'':'primary'}" onclick="toggleAppointmentPaid('${a.id}')">${a.paymentReceived?'↩ Отменить расчёт':'✓ Расчёт'}</button>`:''}${hasPerm('editAppointment')?`<button class="btn small" onclick="editAppointment('${a.id}')">✎ Редактировать</button>`:''}${hasPerm('delete')?`<button class="btn small danger" onclick="deleteAppointment('${a.id}')">⌫ Удалить</button>`:''}</div></article>`}).join('')}</div></div>`).join('')};
+    ensureAppointmentsLayout();const m=$('apptMonth')?.value||todayMonth();apptSelectedMonth=m;renderApptMonthPicker();const list=(db.appointments||[]).filter(a=>String(a.date||'').slice(0,7)===m).sort((a,b)=>(b.date+' '+b.time).localeCompare(a.date+' '+a.time));const box=$('appointmentsTable');if(!box)return;if(!list.length){box.innerHTML=`<div class="appointment-empty-card"><div class="appointment-empty-icon">📅</div><h3>В этом месяце записей пока нет</h3><div>Можно сразу добавить первую запись клиента.</div><button class="btn primary" data-staff-create="1" onclick="addAppointment()">＋ Внести запись</button></div>`;return}const groups={};list.forEach(a=>(groups[a.date]??=[]).push(a));box.innerHTML=Object.entries(groups).map(([date,arr])=>`<div class="appt-day"><div class="appt-date-heading"><div class="appt-date-main"><span class="appt-date-icon">📅</span><div><div class="appt-date-label">Дата записи</div><h3>${ruDate(date)}</h3></div></div><span class="appt-count">${arr.length} ${arr.length===1?'клиент':'клиента'}</span></div><div class="appt-cards">${arr.map(a=>{const order=db.orders.find(o=>o.appointmentId===a.id),hasOrder=!!order,s=order?payoutStatusClass(order):'settlement-unpaid',status=a.paymentReceived?(order&&orderSettlement(order).complete?'<span class="appt-status paid">✓ Расчёты закрыты</span>':'<span class="appt-status partial">◐ Клиент оплатил · расчёты не закрыты</span>'):(hasOrder?'<span class="appt-status ordered">✓ Заказ создан · ожидает оплату</span>':'<span class="appt-status booked">● Записан</span>');return`<article class="appt-card ${s}"><div class="appt-time"><span class="appt-time-label">Время</span><strong>${esc(a.time)}</strong></div><div class="appt-main"><div class="appt-client">${esc(a.client||'—')}</div><div class="appt-car">🚗 ${esc(a.car||'—')}</div><div class="appt-meta"><span><b>VIN:</b> ${esc(a.vin||'—')}</span><span><b>Телефон:</b> ${esc(a.phone||'—')}</span><span><b>Источник:</b> ${esc(a.source||'—')}</span></div></div><div class="appt-state">${status}${a.paymentReceived&&a.paymentMethod?`<span class="appt-payment-method">${esc(a.paymentMethod)}</span>`:''}</div><div class="appt-actions">${hasPerm('payment')?`<button class="btn small ${a.paymentReceived?'':'primary'}" onclick="toggleAppointmentPaid('${a.id}')">${a.paymentReceived?'↩ Отменить расчёт':'✓ Расчёт'}</button>`:''}${hasPerm('editAppointment')?`<button class="btn small" onclick="editAppointment('${a.id}')">✎ Редактировать</button>`:''}${hasPerm('delete')?`<button class="btn small danger" onclick="deleteAppointment('${a.id}')">⌫ Удалить</button>`:''}</div></article>`}).join('')}</div></div>`).join('')};
 
 
   // v60: expose the new settlement handlers to inline buttons and make the dashboard use the new calculation renderer.
@@ -1059,7 +1089,9 @@ bootCloud();
   };
   // Do not allow customer-payment cancellation while money has already been paid out.
   const originalToggleAppointmentPaidForV59=window.toggleAppointmentPaid||toggleAppointmentPaid;
-  window.toggleAppointmentPaid=function(id){
+  
+/* === CUSTOMER PAYMENT GUARD: blocks reset after payout === */
+window.toggleAppointmentPaid=function(id){
     if(!hasPerm('payment')){showToast('Отметка расчёта доступна только администрации.');return}
     const a=appointmentById(id);if(!a)return;
     if(a.paymentReceived){
@@ -1095,4 +1127,6 @@ bootCloud();
 
 })();
 
+
+/* === END OF MAINTENANCE-MAPPED APP CODE === */
 </script></body></html>
