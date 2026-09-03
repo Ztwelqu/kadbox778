@@ -277,6 +277,43 @@ body{font-size:13px}
 
 
 </style>
+
+<style id="v62-dashboard-calculation">
+.profitGrid{grid-template-columns:repeat(4,1fr)}
+#autoProfit{color:var(--o)}
+#washProfit{color:#8db8ff}
+@media(max-width:1200px){.profitGrid{grid-template-columns:repeat(2,1fr)}}
+@media(max-width:900px){.profitGrid{grid-template-columns:1fr}}
+
+/* v65: keep original table dimensions; only pin the "Открыть" action column */
+#recent .table th:last-child,
+#recent .table td:last-child,
+#ordersTable .table th:last-child,
+#ordersTable .table td:last-child,
+.order-month .table th:last-child,
+.order-month .table td:last-child{
+  position:sticky;
+  right:0;
+  z-index:3;
+  background:#101417;
+  box-shadow:-8px 0 14px rgba(0,0,0,.28);
+}
+#recent .table thead th:last-child,
+#ordersTable .table thead th:last-child,
+.order-month .table thead th:last-child{
+  background:#0d1114;
+}
+#recent .table tbody tr:nth-child(even) td:last-child,
+#ordersTable .table tbody tr:nth-child(even) td:last-child,
+.order-month .table tbody tr:nth-child(even) td:last-child{
+  background:#151a1e;
+}
+#recent .table tbody tr:hover td:last-child,
+#ordersTable .table tbody tr:hover td:last-child,
+.order-month .table tbody tr:hover td:last-child{
+  background:#1b1f22;
+}
+</style>
 </head><body>
 <div id="authGate" class="auth-gate">
   <div class="auth-card">
@@ -301,7 +338,7 @@ body{font-size:13px}
 </div>
 <div id="authRoleBadge" class="badge auth-role-badge"></div>
 <div class="app"><aside class="side"><div class="logo">КАД <span>Бокс778</span></div><div class="nav"><button class="active" data-page="dashboard">🏠 Главная</button><button data-page="orders">📋 Заказы</button><button data-page="appointments">📅 Записи</button><button data-page="staff" data-admin-only="1">💰 Сотрудники</button><button data-page="consumables">🧴 Расходники</button><button data-page="trash" data-admin-only="1">🗑️ Корзина <span id="trashCount" class="trashBadge">0</span></button><button data-page="settings" data-admin-only="1">⚙️ Справочник и расчёт</button></div><div class="side-footer"><div class="saveState" id="saveState">● Данные сохранены</div><div class="small">Локальное приложение · данные хранятся в этом браузере</div><button id="authLogout" class="btn small auth-logout" onclick="logout()">↪ Выйти из профиля</button></div></aside><main class="main"><header class="top"><div class="title"><h1 id="pageTitle">Главная</h1><p id="pageSub">Учёт ремонта, запчастей, автомойки и прибыли</p></div><div class="actions"><button id="newAppointmentTopBtn" class="btn appointment-top" data-staff-create="1" onclick="addAppointment()">＋ Новая запись</button><button id="newOrderTopBtn" class="btn primary" data-staff-create="1" onclick="startNewOrder()">＋ Новый заказ</button><button id="exportBtn" class="btn" data-admin-only="1" onclick="exportData()">Экспорт</button><button id="importBtn" class="btn" data-admin-only="1" onclick="document.getElementById('importFile').click()">Импорт</button><input id="importFile" type="file" accept=".json" hidden></div></header>
-<section id="dashboard" class="page active"><div class="cards"><div class="card"><div class="k">Заказов за месяц</div><div class="v" id="mOrders">0</div></div><div class="card"><div class="k">Общая выгода</div><div class="v orange" id="mRevenue">0 ₽</div></div><div class="card"><div class="k">Автосервис — выгода</div><div class="v" id="mAutoRevenue">0 ₽</div></div><div class="card"><div class="k">Автомойка — выгода</div><div class="v blue" id="mWashRevenue">0 ₽</div></div></div><div class="panel"><div class="toolbar"><h2>Период</h2><div class="month-picker-wrap"><input id="dashMonth" type="month" hidden><button id="dashMonthBtn" class="month-picker-btn" onclick="toggleMonthPicker(event)">—</button><div id="dashMonthPicker" class="month-picker" onclick="event.stopPropagation()"></div></div></div></div><div class="panel"><h2>Прибыль по подразделениям</h2><div class="profitGrid"><div class="profit"><div class="hint">Автосервис</div><div class="big" id="autoProfit">0 ₽</div><div class="hint" id="autoDetail"></div></div><div class="profit"><div class="hint">Автомойка</div><div class="big" id="washProfit">0 ₽</div><div class="hint" id="washDetail"></div></div><div class="profit"><div class="hint">Общая прибыль</div><div class="big green" id="netProfit">0 ₽</div><div class="hint" id="netDetail"></div></div></div></div><div class="panel"><h2>Кому сколько начислено</h2><div id="dashStaff" class="tablewrap"></div></div><div class="panel"><h2>Последние заказы</h2><div id="recent" class="tablewrap"></div></div></section>
+<section id="dashboard" class="page active"><div class="cards"><div class="card"><div class="k">Заказов за месяц</div><div class="v" id="mOrders">0</div></div><div class="card"><div class="k">Общая выгода</div><div class="v" id="mRevenue">0 ₽</div></div><div class="card"><div class="k">Автосервис — выгода</div><div class="v orange" id="mAutoRevenue">0 ₽</div></div><div class="card"><div class="k">Автомойка — выгода</div><div class="v blue" id="mWashRevenue">0 ₽</div></div></div><div class="panel"><div class="toolbar"><h2>Период</h2><div class="month-picker-wrap"><input id="dashMonth" type="month" hidden><button id="dashMonthBtn" class="month-picker-btn" onclick="toggleMonthPicker(event)">—</button><div id="dashMonthPicker" class="month-picker" onclick="event.stopPropagation()"></div></div></div></div><div class="panel"><h2>Прибыль по подразделениям</h2><div class="profitGrid"><div class="profit"><div class="hint">Автосервис</div><div class="big orange" id="autoProfit">0 ₽</div><div class="hint" id="autoDetail"></div></div><div class="profit"><div class="hint">Автомойка</div><div class="big blue" id="washProfit">0 ₽</div><div class="hint" id="washDetail"></div></div><div class="profit"><div class="hint">Общая прибыль</div><div class="big green" id="netProfit">0 ₽</div><div class="hint" id="netDetail"></div></div><div class="profit"><div class="hint">Общак</div><div class="big" id="commonProfit">0 ₽</div><div class="hint" id="commonDetail">5% от общей прибыли</div></div></div></div><div class="panel"><h2>Кому сколько начислено</h2><div id="dashStaff" class="tablewrap"></div></div><div class="panel"><h2>Последние заказы</h2><div id="recent" class="tablewrap"></div></div></section>
 <section id="orders" class="page"><div class="panel"><div class="toolbar"><div><h2>Заказы</h2><div class="hint">Заказ привязан к записи клиента. Данные автомобиля и клиента берутся из записи.</div></div><input id="orderSearch" class="search" placeholder="Поиск: клиент, автомобиль, VIN, запчасть..." oninput="renderOrders()"></div><div id="ordersTable" class="tablewrap"></div></div></section>
 <section id="appointments" class="page"><div class="panel"><div class="toolbar"><div><h2>Записи клиентов</h2><div class="hint">Сервис работает без выходных. Время записей — с 09:00 до 21:00. Один слот нельзя занять двумя клиентами.</div></div><button class="btn primary" data-staff-create="1" onclick="addAppointment()">＋ Новая запись</button></div><div class="grid" style="margin-bottom:14px"><div class="field"><label>Дата</label><input id="apptDate" type="date" onchange="renderAppointments()"></div><div class="field span2"><label>Быстрый переход</label><div class="inline"><button class="btn small" onclick="shiftApptDate(-1)">← Вчера</button><button class="btn small" onclick="setApptToday()">Сегодня</button><button class="btn small" onclick="shiftApptDate(1)">Завтра →</button></div></div></div><div id="appointmentsTable" class="tablewrap"></div></div></section><section id="new" class="page"><div class="notice">Сначала создай запись во вкладке «Записи», затем выбери её здесь. Данные клиента и автомобиля в заказ отдельно не вводятся — они автоматически подтягиваются из записи.</div><div class="panel"><h2>Запись клиента</h2><div class="grid"><div class="field span4"><label>Выбрать запись *</label><select id="fAppointment" onchange="appointmentSelected()"></select></div><div id="appointmentPreview" class="span4"></div></div></div><div class="panel ops"><div class="toolbar"><h2>Работы и запчасти</h2></div><div id="opList"></div><div class="op-bottom-bar"><button class="btn op-add-bottom" onclick="addOp()">＋ Добавить позицию</button><div class="summary op-summary"><span>Работы: <b id="newWorks">0 ₽</b></span><span>Запчасти: <b id="newParts">0 ₽</b></span><span>Наценка: <b id="newMargin">0 ₽</b></span><span>Итого: <b id="newTotal">0 ₽</b></span></div></div></div><div class="actions"><button class="btn" onclick="showPage('orders')">Отмена</button><button class="btn primary" onclick="saveOrder()">Сохранить заказ</button></div></section><section id="staff" class="page"><div class="panel"><div class="toolbar"><h2>Расчёт сотрудников</h2><div class="month-picker-wrap"><input id="staffMonth" type="month" hidden><button id="staffMonthBtn" class="month-picker-btn" onclick="togglePageMonthPicker(event,'staff')">—</button><div id="staffMonthPicker" class="month-picker" onclick="event.stopPropagation()"></div></div></div><div id="staffTable" class="tablewrap"></div></div></section>
 <section id="consumables" class="page"><div class="panel"><div class="toolbar"><div><h2>Расходники</h2><div class="hint">Стоимость покупок вычитается из прибыли выбранного подразделения.</div></div><button class="btn primary" data-staff-create="1" onclick="addConsumable()">＋ Добавить расход</button></div><div class="grid" style="margin-bottom:14px"><div class="field"><label>Месяц</label><div class="month-picker-wrap"><input id="consMonth" type="month" hidden><button id="consMonthBtn" class="month-picker-btn" onclick="togglePageMonthPicker(event,'cons')">—</button><div id="consMonthPicker" class="month-picker" onclick="event.stopPropagation()"></div></div></div><div class="field"><label>Подразделение</label><select id="consDep" onchange="renderConsumables()"><option value="">Все</option><option>Автосервис</option><option>Автомойка</option></select></div></div><div id="consumablesTable" class="tablewrap"></div></div></section>
@@ -804,6 +841,258 @@ bootCloud();
 
   // Replace old appointment date input behavior after all existing handlers are installed.
   setTimeout(()=>{ensureAppointmentsLayout();renderAppointments();},0);
+  /* v59: payout settlement workflow, purchase reimbursement and visual payment state. */
+  function ensureSettlementState(o){
+    if(!o.settlements || typeof o.settlements!=='object' || Array.isArray(o.settlements)) o.settlements={};
+    return o.settlements;
+  }
+  function isSergey(v){ return String(v||'').trim().toLowerCase()==='сергей'; }
+  function eligiblePartsPurchase(o){
+    return (o.ops||[]).filter(x=>x.type==='Запчасть' && !isSergey(x.performer)).reduce((sum,x)=>sum+num(x.purchase),0);
+  }
+  function calcOrder(o){
+    let z={works:0,parts:0,margin:0,total:0,partsCost:0,partsReimbursement:0,staff:{},d:{Автосервис:{revenue:0,accrual:0,partsCost:0,profit:0},Автомойка:{revenue:0,accrual:0,partsCost:0,profit:0}}};
+    (o.ops||[]).forEach(op=>{
+      let c=calcOp(op),d=c.department;
+      if(!z.d[d])z.d[d]={revenue:0,accrual:0,partsCost:0,profit:0};
+      if(op.type==='Работа') z.works+=num(op.work);
+      else { z.parts+=num(op.client); z.margin+=c.margin; z.d[d].partsCost+=num(op.purchase); z.partsCost+=num(op.purchase); }
+      let clientAmount=op.type==='Работа'?num(op.work):num(op.client);
+      z.total+=clientAmount; z.d[d].revenue+=clientAmount;
+      for(let p in c.out){z.staff[p]=(z.staff[p]||0)+c.out[p];if(p==='Автосервис'||p==='Автомойка')z.d[p].accrual+=c.out[p]}
+    });
+    z.autoservice=z.d.Автосервис.accrual; z.carwash=z.d.Автомойка.accrual;
+    z.partsReimbursement=eligiblePartsPurchase(o);
+    return z;
+  }
+  function payoutDueRows(o){
+    const c=calcOrder(o), rows=[];
+    Object.entries(c.staff||{}).forEach(([name,amount])=>rows.push({key:'recipient:'+name,label:name,amount:num(amount),kind:(name==='Автосервис'||name==='Автомойка')?'department':'employee'}));
+    if(c.partsReimbursement>0) rows.push({key:'partsPurchase',label:'Возврат за закупку запчастей',amount:c.partsReimbursement,kind:'parts'});
+    return rows.filter(x=>x.amount>0.000001);
+  }
+  function settlementInfo(o,row){
+    const st=ensureSettlementState(o)[row.key]||{};
+    const paid=num(st.amount), due=num(row.amount);
+    const status=st.status==='partial' || (paid>0 && paid<due-0.005) ? 'partial' : (st.status==='paid' && paid>=due-0.005 ? 'paid' : 'pending');
+    return {...st,amount:paid,status};
+  }
+  function orderSettlement(o){
+    const rows=payoutDueRows(o), customerPaid=!!appointmentById(o.appointmentId)?.paymentReceived;
+    const items=rows.map(r=>({...r,settlement:settlementInfo(o,r)}));
+    const complete=customerPaid && items.every(r=>r.settlement.status==='paid');
+    const hasPartial=items.some(r=>r.settlement.status==='partial');
+    return {customerPaid,items,complete,hasPartial,pending:items.filter(r=>r.settlement.status!=='paid')};
+  }
+  function payoutStatusClass(o){
+    const s=orderSettlement(o);
+    if(!s.customerPaid)return 'settlement-unpaid';
+    if(s.complete)return 'settlement-complete';
+    return 'settlement-pending';
+  }
+  function payoutStatusLabel(o){
+    const s=orderSettlement(o);
+    if(!s.customerPaid)return 'Ожидает оплаты клиента';
+    if(s.complete)return '✓ Все расчёты закрыты';
+    if(s.hasPartial)return '◐ Есть неполный расчёт';
+    return '⏳ Требуется расчёт';
+  }
+  function settlementDateDefault(){return today();}
+  function closeSettlementDialog(){const x=document.getElementById('settlementDialog');if(x)x.remove()}
+  function showCustomerPaymentGate(orderId,nextKey){
+    closeSettlementDialog();
+    const o=db.orders.find(x=>x.id===orderId); if(!o)return;
+    const a=appointmentById(o.appointmentId);
+    const x=document.createElement('div'); x.id='settlementDialog'; x.className='settlement-dialog';
+    x.innerHTML=`<div class="settlement-dialog-box"><div class="settlement-dialog-icon">?</div><h3>Вы получили деньги от клиента?</h3><p>Чтобы закрыть расчёт с сотрудником, автосервисом, автомойкой или за закупку запчастей, сначала нужно подтвердить получение денег от клиента.</p><div class="settlement-dialog-note">Если деньги действительно получены, нажми «Продолжить». Статус «Расчёт произведён» будет автоматически прикреплён к записи.</div><div class="actions"><button class="btn" type="button" onclick="closeSettlementDialog()">Отмена</button><button class="btn primary" type="button" onclick="confirmCustomerPaymentForSettlement('${esc(orderId)}','${esc(nextKey||'')}')">Продолжить</button></div></div>`;
+    document.body.appendChild(x);
+    requestAnimationFrame(()=>x.classList.add('open'));
+  }
+  function confirmCustomerPaymentForSettlement(orderId,nextKey){
+    const o=db.orders.find(x=>x.id===orderId); if(!o){closeSettlementDialog();return}
+    const a=appointmentById(o.appointmentId); if(!a){closeSettlementDialog();showToast('У заказа нет привязанной записи клиента.');return}
+    const method=prompt('Как клиент расплатился?\nНапример: карта, наличные, расчётный счёт. Можно написать свой вариант:','');
+    if(method===null)return;
+    const m=method.trim(); if(!m){alert('Укажи способ оплаты.');return}
+    a.paymentReceived=true; a.paymentMethod=m;
+    save('✓ Расчёт клиента подтверждён');
+    closeSettlementDialog();
+    showToast('Деньги от клиента подтверждены. Теперь можно закрыть начисление.');
+    setTimeout(()=>openSettlementDialog(orderId,nextKey),0);
+  }
+  function openSettlementDialog(orderId,key){
+    if(!hasPerm('edit')){showToast('Закрывать расчёты может только администрация.');return}
+    const o=db.orders.find(x=>x.id===orderId); if(!o)return;
+    const a=appointmentById(o.appointmentId), rows=payoutDueRows(o), row=rows.find(x=>x.key===key); if(!row)return;
+    if(!a?.paymentReceived){showCustomerPaymentGate(orderId,key);return}
+    const old=settlementInfo(o,row), partial=old.status==='partial';
+    closeSettlementDialog();
+    const x=document.createElement('div'); x.id='settlementDialog'; x.className='settlement-dialog';
+    x.innerHTML=`<div class="settlement-dialog-box settlement-form"><div class="settlement-dialog-top"><div><div class="settlement-kicker">ЗАКРЫТИЕ НАЧИСЛЕНИЯ</div><h3>${esc(row.label)}</h3><div class="hint">К оплате: <b>${money(row.amount)}</b></div></div><button class="x" type="button" onclick="closeSettlementDialog()">×</button></div><div class="settlement-customer-ok">✓ Деньги от клиента получены · ${esc(a.paymentMethod||'способ не указан')}</div><div class="grid"><div class="field"><label>Дата расчёта *</label><input id="settleDate" type="date" value="${esc(old.date||settlementDateDefault())}"></div><div class="field"><label>Как произведён расчёт *</label><input id="settleMethod" value="${esc(old.method||'')}" placeholder="Например: наличные, карта, перевод"></div><div class="field"><label>Сумма расчёта *</label><input id="settleAmount" type="number" min="0" step="0.01" value="${old.amount?esc(old.amount):esc(row.amount)}"></div><div class="field"><label>Статус</label><select id="settleStatus"><option value="paid" ${!partial?'selected':''}>Полный расчёт</option><option value="partial" ${partial?'selected':''}>Неполный расчёт</option></select></div><div class="field span4" id="settleReasonField" style="display:${partial?'block':'none'}"><label>Причина неполного расчёта *</label><textarea id="settleReason" placeholder="Например: часть суммы будет выдана после окончания месяца...">${esc(old.reason||'')}</textarea></div></div><div class="settlement-due-note">Если выбран «Неполный расчёт», укажи фактически выданную сумму и причину. Полностью закрытое начисление будет подсвечено зелёным, неполное — жёлтым.</div><div class="actions"><button class="btn" type="button" onclick="closeSettlementDialog()">Отмена</button><button class="btn primary" type="button" onclick="saveSettlement('${esc(orderId)}','${esc(key)}')">Сохранить расчёт</button></div></div>`;
+    document.body.appendChild(x); requestAnimationFrame(()=>x.classList.add('open'));
+    document.getElementById('settleStatus').onchange=function(){document.getElementById('settleReasonField').style.display=this.value==='partial'?'block':'none'};
+  }
+  function saveSettlement(orderId,key){
+    const o=db.orders.find(x=>x.id===orderId);if(!o)return;
+    const rows=payoutDueRows(o),row=rows.find(x=>x.key===key);if(!row)return;
+    const a=appointmentById(o.appointmentId);if(!a?.paymentReceived){closeSettlementDialog();showCustomerPaymentGate(orderId,key);return}
+    const date=document.getElementById('settleDate')?.value||today(),method=document.getElementById('settleMethod')?.value.trim()||'',amount=num(document.getElementById('settleAmount')?.value),status=document.getElementById('settleStatus')?.value||'paid',reason=document.getElementById('settleReason')?.value.trim()||'';
+    if(!date||!method)return alert('Заполни дату и способ расчёта.');
+    if(amount<=0)return alert('Сумма расчёта должна быть больше нуля.');
+    if(amount>row.amount+0.005)return alert('Сумма расчёта не может быть больше начисления.');
+    if(status==='partial'&&!reason)return alert('Укажи причину неполного расчёта.');
+    if(status==='paid'&&amount<row.amount-0.005)return alert('Для полного расчёта сумма должна совпадать с начислением. Если выдали меньше, выбери «Неполный расчёт».');
+    ensureSettlementState(o)[key]={status:status==='partial'?'partial':'paid',date,method,amount:Math.min(amount,row.amount),reason:status==='partial'?reason:''};
+    save(status==='partial'?'✓ Неполный расчёт сохранён':'✓ Расчёт закрыт');
+    closeSettlementDialog(); openOrder(orderId); renderAll();
+  }
+  function resetSettlement(orderId,key){
+    const o=db.orders.find(x=>x.id===orderId);if(!o)return; if(!hasPerm('edit'))return;
+    const rows=payoutDueRows(o),row=rows.find(x=>x.key===key);if(!row)return;
+    if(!confirm(`Сбросить расчёт «${row.label}»? Начисление снова станет открытым.`))return;
+    ensureSettlementState(o)[key]={};save('✓ Расчёт открыт');openOrder(orderId);renderAll();
+  }
+  function settlementOutstanding(o,row){
+    const ss=settlementInfo(o,row);
+    return Math.max(0,num(row.amount)-num(ss.amount));
+  }
+  function dashboardPending(o){
+    const st=orderSettlement(o);
+    const pending={employees:{},departments:{Автосервис:0,Автомойка:0},parts:0,total:0};
+    st.items.forEach(row=>{
+      const amount=settlementOutstanding(o,row);
+      pending.total+=amount;
+      if(row.kind==='parts') pending.parts+=amount;
+      else if(row.kind==='department') pending.departments[row.label]=(pending.departments[row.label]||0)+amount;
+      else pending.employees[row.label]=(pending.employees[row.label]||0)+amount;
+    });
+    return pending;
+  }
+  function staffTableGrouped(f){
+    const employees=Object.keys(f.staff||{}).filter(n=>n!=='Автосервис'&&n!=='Автомойка').map(name=>[name,num(f.staff[name])]);
+    const services=[['Автосервис',num(f.d.Автосервис.accrual)],['Автомойка',num(f.d.Автомойка.accrual)]];
+    const table=(title,rows,cls)=>`<div class="dash-accrual-group ${cls}"><div class="dash-accrual-title">${title}</div><table class="table"><tbody>${rows.map(([n,v])=>`<tr><td><b>${esc(n)}</b></td><td>${money(v)}</td></tr>`).join('')||'<tr><td colspan="2" class="empty">Нет начислений</td></tr>'}</tbody></table></div>`;
+    const employeesSettled=Object.entries(f.settled?.employees||{});
+    const servicesSettled=[['Автосервис',num(f.settled?.departments?.Автосервис)],['Автомойка',num(f.settled?.departments?.Автомойка)]];
+    const purchasePending=num(f.pending?.parts);
+    return `<div class="dash-accrual-grid">${table('Сотрудники',employeesSettled,'employees')}${table('Подразделения',servicesSettled,'departments')}${table('Запчасти',[['Возврат денег на р/сч за запчасти',purchasePending]],'parts')}</div><div class="dash-accrual-total"><span>Всего начислено / к возврату</span><b>${money(f.pending?.total||0)}</b></div>`;
+  }
+  function finances(m){
+    let f={orders:0,revenue:0,staff:{},partsReimbursement:0,pending:{employees:{},departments:{Автосервис:0,Автомойка:0},parts:0,total:0},settled:{employees:{},departments:{Автосервис:0,Автомойка:0}},d:{Автосервис:{revenue:0,accrual:0,partsCost:0,cons:0,profit:0},Автомойка:{revenue:0,accrual:0,partsCost:0,cons:0,profit:0}}};
+    db.orders.filter(o=>inM(o.date,m)).forEach(o=>{
+      let c=calcOrder(o);
+      f.orders++;
+      for(let p in c.staff)f.staff[p]=(f.staff[p]||0)+c.staff[p];
+      for(let d of ['Автосервис','Автомойка']){f.d[d].revenue+=c.d[d].revenue;f.d[d].accrual+=c.d[d].accrual;f.d[d].partsCost+=c.d[d].partsCost}
+      const pending=dashboardPending(o);
+      const settled=orderSettlement(o);
+      settled.items.forEach(row=>{
+        const paidAmount=settlementInfo(o,row).amount;
+        if(paidAmount<=0.000001)return;
+        if(row.kind==='department') f.settled.departments[row.label]=(f.settled.departments[row.label]||0)+paidAmount;
+        else if(row.kind==='employee') f.settled.employees[row.label]=(f.settled.employees[row.label]||0)+paidAmount;
+      });
+      f.pending.total+=pending.total;
+      f.pending.parts+=pending.parts;
+      for(const [name,amount] of Object.entries(pending.employees))f.pending.employees[name]=(f.pending.employees[name]||0)+amount;
+      f.pending.departments.Автосервис+=pending.departments.Автосервис||0;
+      f.pending.departments.Автомойка+=pending.departments.Автомойка||0;
+    });
+    f.partsReimbursement=f.pending.parts;
+    db.consumables.filter(c=>inM(c.date,m)).forEach(c=>{if(f.d[c.department])f.d[c.department].cons+=num(c.amount)});
+    for(let d of ['Автосервис','Автомойка'])f.d[d].profit=f.d[d].accrual-f.d[d].cons;
+    f.revenue=Object.values(f.staff).reduce((a,b)=>a+b,0);
+    f.net=f.d.Автосервис.profit+f.d.Автомойка.profit;
+    f.common=f.net*0.05;
+    return f;
+  }
+  function renderDashboard(){
+    let f=finances(document.getElementById('dashMonth').value||month()),a=f.d.Автосервис,w=f.d.Автомойка;
+    document.getElementById('mOrders').textContent=f.orders;document.getElementById('mRevenue').textContent=money(f.revenue);document.getElementById('mAutoRevenue').textContent=money(a.accrual);document.getElementById('mWashRevenue').textContent=money(w.accrual);document.getElementById('autoProfit').textContent=money(a.profit);document.getElementById('washProfit').textContent=money(w.profit);document.getElementById('netProfit').textContent=money(f.net);
+    document.getElementById('commonProfit').textContent=money(f.common);
+    document.getElementById('autoDetail').textContent=`Получено автосервисом: ${money(a.accrual)} − расходники ${money(a.cons)}`;document.getElementById('washDetail').textContent=`Получено автомойкой: ${money(w.accrual)} − расходники ${money(w.cons)}`;document.getElementById('netDetail').textContent=`Автосервис ${money(a.accrual)} + Автомойка ${money(w.accrual)} − расходники ${money(a.cons+w.cons)}`;document.getElementById('commonDetail').textContent=`5% от общей прибыли: ${money(f.net)} × 5%`;
+    document.getElementById('dashStaff').innerHTML=staffTableGrouped(f);document.getElementById('recent').innerHTML=ordersTable([...db.orders].sort((a,b)=>String(b.date).localeCompare(String(a.date))).slice(0,8));
+  }
+  function ordersTable(a){
+    if(!a.length)return'<div class="empty">Заказов пока нет.</div>';
+    return`<table class="table"><thead><tr><th>Дата</th><th>Время</th><th>Автомобиль</th><th>Клиент</th><th>Статус оплаты</th><th>Расчёт</th><th>Работы</th><th>Запчасти</th><th>Итого</th><th></th></tr></thead><tbody>${a.map(o=>{let c=calcOrder(o),a=orderAppointment(o),paid=!!a?.paymentReceived,s=payoutStatusClass(o);return`<tr class="${s}"><td>${esc(a?.date||o.date||'')}</td><td>${esc(a?.time||'—')}</td><td><b>${esc(a?.car||o.car||'')}</b><br><span class="hint">${esc(a?.vin||o.vin||'')}</span></td><td>${esc(a?.client||o.client||'')}</td><td>${paid?'<span class="paidBadge">✓ Оплачено</span>'+(a?.paymentMethod?`<span class="hint" style="margin-left:6px">${esc(a.paymentMethod)}</span>`:''):'<span class="unpaidBadge">Не оплачено</span>'}</td><td><span class="settlement-pill ${s}">${payoutStatusLabel(o)}</span></td><td>${money(c.works)}</td><td>${money(c.parts)}</td><td><b>${money(c.total)}</b></td><td><button class="btn small" onclick="openOrder('${o.id}')">Открыть</button></td></tr>`}).join('')}</tbody></table>`;
+  }
+  window.openOrder=function(id){
+    const o=db.orders.find(x=>x.id===id);if(!o){showToast('Заказ не найден');return}const a=orderAppointment(o),c=calcOrder(o),st=orderSettlement(o);
+    const staffRows=st.items.map(row=>{const ss=row.settlement;const cls=ss.status==='paid'?'settlement-row-paid':(ss.status==='partial'?'settlement-row-partial':(st.customerPaid?'settlement-row-open':'settlement-row-locked'));const btn=hasPerm('edit')?(ss.status==='paid'||ss.status==='partial'?`<button class="btn small" onclick="openSettlementDialog('${esc(o.id)}','${esc(row.key)}')">Изменить</button><button class="btn small" onclick="resetSettlement('${esc(o.id)}','${esc(row.key)}')">Открыть</button>`:`<button class="btn small ${st.customerPaid?'primary':''}" onclick="openSettlementDialog('${esc(o.id)}','${esc(row.key)}')">✓ Рассчитать</button>`):'';return`<tr class="${cls}"><td><b>${esc(row.label)}</b><div class="hint">${row.kind==='parts'?'Закупка запчастей':row.kind==='department'?'Подразделение':'Сотрудник'}</div>${ss.status==='partial'?`<div class="settlement-reason">Причина: ${esc(ss.reason||'—')}</div>`:''}</td><td><div class="settlement-amount-cell"><b>${money(row.amount)}</b><span class="settlement-action">${btn}</span></div>${ss.status==='paid'?`<div class="settlement-meta">✓ ${esc(ss.date||'')} · ${esc(ss.method||'')} · выплачено ${money(ss.amount)}</div>`:''}${ss.status==='partial'?`<div class="settlement-meta settlement-meta-yellow">◐ ${esc(ss.date||'')} · ${esc(ss.method||'')} · выплачено ${money(ss.amount)} из ${money(row.amount)}</div>`:''}</td></tr>`}).join('');
+    const ops=(o.ops||[]).map((x,i)=>{const z=calcOp(x),scheme=z.scheme||{},rules=(scheme.rules||[]).map(r=>`${esc(r.target)} → ${esc(resolveTarget(r.target,x)||'не выбран')}: ${num(r.percent)}%${num(r.fixed)?' + '+money(r.fixed):''}`).join(' · ');const viewClass=x.type==='Запчасть'?'op-view-part':(x.department==='Автомойка'?'op-view-wash':'op-view-work');return`<div class="order-op-item ${viewClass}"><div class="order-op-main"><b>${esc(x.desc||'Без названия')}</b> <span class="badge ${x.type==='Запчасть'?'orange':'green'}">${esc(x.type||'Работа')}</span><br><span class="hint">${esc(x.category||'')} · Подразделение: ${esc(x.department||'Автосервис')}</span>${x.type==='Запчасть'?`<br><span class="hint">Закупка: ${money(x.purchase)} · Цена клиенту: ${money(x.client)} · Наценка: ${money(z.margin)}</span>`:`<br><span class="hint">Стоимость работы: ${money(x.work)}</span>`}${x.partNumber?`<br><span class="hint">Номенклатура: ${esc(x.partNumber)}</span>`:''}${x.partLink?`<br><span class="hint">Ссылка: <a href="${esc(x.partLink)}" target="_blank" rel="noopener" style="color:var(--blue)">${esc(x.partLink)}</a></span>`:''}<br><span class="hint">Исполнитель: ${esc(x.performer||'не выбран')} · Менеджмент: ${esc(x.manager||'не выбран')}</span><br><span class="hint">Схема: ${esc((x.schemeName===NO_CALC_SCHEME?'Без расчёта':(x.schemeName||findSchemeName(x.scheme)||'Индивидуальная / сохранённая')))} · ${rules||'нет правил'}</span></div></div>`}).join('');
+    const settlementNotice=!st.customerPaid?`<div class="settlement-warning"><b>Расчёт с получателями пока закрыт.</b><span>Сначала подтвердите получение денег от клиента. После этого можно рассчитывать сотрудников, автосервис, автомойку и закупку запчастей.</span><button class="btn small primary" onclick="showCustomerPaymentGate('${esc(o.id)}','${esc(st.items[0]?.key||'')}')">✓ Деньги от клиента получены</button></div>`:(st.complete?`<div class="settlement-success"><b>✓ Все начисления закрыты</b><span>Сотрудники, подразделения и возврат за закупку запчастей рассчитаны полностью.</span></div>`:`<div class="settlement-warning paid"><b>✓ Деньги от клиента получены</b><span>Остались открытые начисления — рассчитай их ниже.</span></div>`);
+    document.getElementById('modalTitle').textContent=`Заказ — ${a?.client||o.client||'без клиента'}`+(a?.paymentReceived?' · ✓ Оплачен':' · Не оплачен');
+    document.getElementById('modalBody').innerHTML=`<div class="panel"><div class="toolbar"><h2>Запись клиента</h2><div class="actions"><button class="btn small primary" onclick="openAppointmentFromOrder('${esc(a?.id||o.appointmentId||'')}')">Перейти к записи</button><button class="btn small" onclick="printOrder('${esc(o.id)}')">🖨 Печать заказ-наряда</button></div></div><div class="grid"><div class="field"><label>Дата</label><div>${esc(a?.date||o.date||'—')}</div></div><div class="field"><label>Время</label><div>${esc(a?.time||'—')}</div></div><div class="field"><label>Автомобиль</label><div>${esc(a?.car||o.car||'—')}</div></div><div class="field"><label>VIN</label><div>${esc(a?.vin||o.vin||'—')}</div></div><div class="field"><label>Пробег</label><div>${esc(a?.mileage||o.mileage||'—')}</div></div><div class="field"><label>Год</label><div>${esc(a?.year||o.year||'—')}</div></div><div class="field"><label>Клиент</label><div>${esc(a?.client||o.client||'—')}</div></div><div class="field"><label>Телефон</label><div>${esc(a?.phone||o.phone||'—')}</div></div><div class="field"><label>Источник</label><div>${esc(a?.source||o.source||'—')}</div></div><div class="field span4"><label>Заметка</label><div>${esc(a?.note||o.note||'—')}</div></div></div></div><div class="panel"><div class="toolbar"><h2>Работы и запчасти</h2><span class="hint">${hasPerm('edit')?'Кнопками ↑ ↓ можно менять порядок позиций.':''}</span></div>${ops||'<div class="empty">Позиции не добавлены.</div>'}</div><div class="panel settlement-panel"><div class="toolbar"><div><h2>Начисления</h2><div class="hint">Каждое начисление закрывается отдельно после получения денег от клиента.</div></div><span class="settlement-order-pill ${payoutStatusClass(o)}">${payoutStatusLabel(o)}</span></div>${settlementNotice}<div class="tablewrap"><table class="table"><thead><tr><th>Кому</th><th>Начислено / действие</th></tr></thead><tbody>${staffRows||'<tr><td colspan="2">Нет начислений</td></tr>'}</tbody></table></div></div><div class="summary order-total-summary"><span>Автосервис: <b>${money(c.autoservice||0)}</b></span><span>Автомойка: <b>${money(c.carwash||0)}</b></span><span>Работы: <b>${money(c.works)}</b></span><span>Запчасти: <b>${money(c.parts)}</b></span><span>Закупка запчастей: <b>${money(c.partsCost)}</b></span><span>Итого: <b>${money(c.total)}</b></span></div><div class="actions" style="margin-top:18px">${hasPerm('edit')?`<button class="btn primary" onclick="editOrder('${esc(o.id)}')">Редактировать заказ</button>`:''}${hasPerm('delete')?`<button class="btn danger" onclick="deleteOrder('${esc(o.id)}')">Удалить</button>`:''}</div>`;
+    document.getElementById('modal').classList.add('open');
+  };
+  window.renderAppointments=function(){
+    ensureAppointmentsLayout();const m=$('apptMonth')?.value||todayMonth();apptSelectedMonth=m;renderApptMonthPicker();const list=(db.appointments||[]).filter(a=>String(a.date||'').slice(0,7)===m).sort((a,b)=>(a.date+' '+a.time).localeCompare(b.date+' '+b.time));const box=$('appointmentsTable');if(!box)return;if(!list.length){box.innerHTML=`<div class="appointment-empty-card"><div class="appointment-empty-icon">📅</div><h3>В этом месяце записей пока нет</h3><div>Можно сразу добавить первую запись клиента.</div><button class="btn primary" data-staff-create="1" onclick="addAppointment()">＋ Внести запись</button></div>`;return}const groups={};list.forEach(a=>(groups[a.date]??=[]).push(a));box.innerHTML=Object.entries(groups).map(([date,arr])=>`<div class="appt-day"><div class="appt-date-heading"><div class="appt-date-main"><span class="appt-date-icon">📅</span><div><div class="appt-date-label">Дата записи</div><h3>${ruDate(date)}</h3></div></div><span class="appt-count">${arr.length} ${arr.length===1?'клиент':'клиента'}</span></div><div class="appt-cards">${arr.map(a=>{const order=db.orders.find(o=>o.appointmentId===a.id),hasOrder=!!order,s=order?payoutStatusClass(order):'settlement-unpaid',status=a.paymentReceived?(order&&orderSettlement(order).complete?'<span class="appt-status paid">✓ Расчёты закрыты</span>':'<span class="appt-status partial">◐ Клиент оплатил · расчёты не закрыты</span>'):(hasOrder?'<span class="appt-status ordered">✓ Заказ создан · ожидает оплату</span>':'<span class="appt-status booked">● Записан</span>');return`<article class="appt-card ${s}"><div class="appt-time"><span class="appt-time-label">Время</span><strong>${esc(a.time)}</strong></div><div class="appt-main"><div class="appt-client">${esc(a.client||'—')}</div><div class="appt-car">🚗 ${esc(a.car||'—')}</div><div class="appt-meta"><span><b>VIN:</b> ${esc(a.vin||'—')}</span><span><b>Телефон:</b> ${esc(a.phone||'—')}</span><span><b>Источник:</b> ${esc(a.source||'—')}</span></div></div><div class="appt-state">${status}${a.paymentReceived&&a.paymentMethod?`<span class="appt-payment-method">${esc(a.paymentMethod)}</span>`:''}</div><div class="appt-actions">${hasPerm('payment')?`<button class="btn small ${a.paymentReceived?'':'primary'}" onclick="toggleAppointmentPaid('${a.id}')">${a.paymentReceived?'↩ Отменить расчёт':'✓ Расчёт'}</button>`:''}${hasPerm('editAppointment')?`<button class="btn small" onclick="editAppointment('${a.id}')">✎ Редактировать</button>`:''}${hasPerm('delete')?`<button class="btn small danger" onclick="deleteAppointment('${a.id}')">⌫ Удалить</button>`:''}</div></article>`}).join('')}</div></div>`).join('')};
+
+
+  // v60: expose the new settlement handlers to inline buttons and make the dashboard use the new calculation renderer.
+  // The settlement UI is created inside this IIFE, while its buttons use inline onclick handlers.
+  // Explicit window bindings prevent the browser from looking for missing global functions.
+  window.closeSettlementDialog=closeSettlementDialog;
+  window.openSettlementDialog=openSettlementDialog;
+  window.showCustomerPaymentGate=showCustomerPaymentGate;
+  window.confirmCustomerPaymentForSettlement=confirmCustomerPaymentForSettlement;
+  window.saveSettlement=saveSettlement;
+  window.resetSettlement=resetSettlement;
+  // renderAll() calls the global renderDashboard; point it at the v59/v60 implementation.
+  window.renderDashboard=renderDashboard;
+
+  // Preserve settlement history when an existing order is edited.
+  const originalSaveOrderForV59=window.saveOrder;
+  window.saveOrder=function(){
+    if(!hasPerm('create')&&editingId===null){showToast('Недостаточно прав.');return}
+    if(editingId&&!hasPerm('edit')){showToast('Редактирование заказов доступно только администрации.');return}
+    const aid=document.getElementById('fAppointment')?.value, a=appointmentById(aid);
+    if(!a){alert('Сначала выбери запись клиента.');return}
+    const duplicate=(db.orders||[]).find(x=>x&&x.appointmentId===aid&&x.id!==editingId);
+    if(duplicate){renderAppointmentOptions('');showToast('На эту запись уже создан заказ. Выбери другую запись.');return}
+    const old=editingId?db.orders.find(x=>x.id===editingId):null;
+    let o={id:editingId||uid(),appointmentId:aid,date:a.date,car:a.car,vin:a.vin,mileage:a.mileage,year:a.year,client:a.client,phone:a.phone,source:a.source,note:a.note,ops:readOps()};
+    if(old && old.appointmentId===aid && old.settlements) o.settlements=JSON.parse(JSON.stringify(old.settlements));
+    let i=db.orders.findIndex(x=>x.id===o.id);if(i>=0)db.orders[i]=o;else db.orders.push(o);
+    save('✓ Заказ сохранён');editingId=null;showPage('orders');
+  };
+  // Do not allow customer-payment cancellation while money has already been paid out.
+  const originalToggleAppointmentPaidForV59=window.toggleAppointmentPaid||toggleAppointmentPaid;
+  window.toggleAppointmentPaid=function(id){
+    if(!hasPerm('payment')){showToast('Отметка расчёта доступна только администрации.');return}
+    const a=appointmentById(id);if(!a)return;
+    if(a.paymentReceived){
+      const o=(db.orders||[]).find(x=>x.appointmentId===id), st=o?orderSettlement(o):null;
+      const hasPaidOut=st?.items?.some(r=>num(r.settlement?.amount)>0);
+      if(hasPaidOut){showToast('Сначала открой начисления и сбрось проведённые расчёты, затем можно отменить оплату клиента.');return}
+      a.paymentReceived=false;a.paymentMethod='';save('✓ Отметка о расчёте отменена');showToast('Отметка отменена.');renderAppointments();renderAll();return;
+    }
+    if(!oForPaymentExists(id)){showToast('Сначала создай заказ по этой записи, после получения денег отметь расчёт.');return}
+    const method=prompt('Как клиент расплатился?\nНапример: карта, наличные, расчётный счёт. Можно написать свой вариант:','');
+    if(method===null)return;const m=method.trim();if(!m){alert('Укажи способ оплаты.');return}
+    a.paymentMethod=m;a.paymentReceived=true;save('✓ Расчёт по записи подтверждён');showToast('Расчёт произведён. Способ оплаты: '+m+'.');renderAppointments();renderAll();
+  };
+  function oForPaymentExists(id){return (db.orders||[]).some(o=>o&&o.appointmentId===id)}
+  // Keep lexical callers on the new appointment payment handler as well.
+  toggleAppointmentPaid=window.toggleAppointmentPaid;
+
+  // Final bindings after all settlement functions have been declared.
+  window.closeSettlementDialog=closeSettlementDialog;
+  window.openSettlementDialog=openSettlementDialog;
+  window.showCustomerPaymentGate=showCustomerPaymentGate;
+  window.confirmCustomerPaymentForSettlement=confirmCustomerPaymentForSettlement;
+  window.saveSettlement=saveSettlement;
+  window.resetSettlement=resetSettlement;
+  window.renderDashboard=renderDashboard;
+
+  const payoutStyle=document.createElement('style'); payoutStyle.textContent=`
+    .settlement-dialog{position:fixed;inset:0;display:flex;align-items:center;justify-content:center;padding:20px;background:#000b;z-index:120;opacity:0;transition:opacity .16s}.settlement-dialog.open{opacity:1}.settlement-dialog-box{width:min(650px,100%);max-height:90vh;overflow:auto;background:#151a1f;border:1px solid #3a434c;border-radius:16px;padding:20px;box-shadow:0 24px 70px #000c}.settlement-dialog-top{display:flex;justify-content:space-between;gap:14px}.settlement-kicker{font-size:9px;letter-spacing:.13em;color:#ff9a3d;font-weight:800}.settlement-dialog h3{margin:4px 0 5px;font-size:19px}.settlement-dialog-icon{width:42px;height:42px;border-radius:50%;display:flex;align-items:center;justify-content:center;background:#21170f;border:1px solid #6a3e1f;color:#ffb06f;font-weight:900;font-size:20px;margin-bottom:12px}.settlement-dialog-note,.settlement-due-note{padding:10px 12px;border-radius:9px;background:#101419;border:1px solid #2c343c;color:#aeb6bf;font-size:12px;margin:12px 0 16px}.settlement-customer-ok{padding:9px 11px;border:1px solid #28583d;background:#101e17;color:#77dc9e;border-radius:9px;font-size:12px;margin:10px 0 15px}.settlement-warning,.settlement-success{display:flex;align-items:center;gap:10px;flex-wrap:wrap;padding:10px 12px;border-radius:10px;border:1px solid #6a3e1f;background:#21170f;color:#ffbd87;margin:0 0 12px}.settlement-warning span,.settlement-success span{color:#b9c1c8;font-size:12px;flex:1 1 240px}.settlement-warning.paid{border-color:#6a541f;background:#211c0f;color:#f1d17c}.settlement-success{border-color:#28583d;background:#101e17;color:#77dc9e}.settlement-amount-cell{display:flex;align-items:center;justify-content:space-between;gap:12px}.settlement-action{flex:0 0 auto}.settlement-meta{font-size:11px;color:#77dc9e;margin-top:5px}.settlement-meta-yellow{color:#e4c65e}.settlement-reason{font-size:11px;color:#e4c65e;margin-top:4px}.settlement-row-paid td{background:rgba(69,196,122,.08)!important}.settlement-row-paid td:first-child{box-shadow:inset 3px 0 var(--g)}.settlement-row-partial td{background:rgba(224,190,64,.09)!important}.settlement-row-partial td:first-child{box-shadow:inset 3px 0 #d9bd4b}.settlement-row-open td{background:rgba(255,116,23,.045)!important}.settlement-row-locked td{background:rgba(255,255,255,.015)!important}.settlement-pill,.settlement-order-pill{display:inline-flex;align-items:center;border-radius:999px;padding:4px 8px;font-size:10px;white-space:nowrap;border:1px solid #3b4249}.settlement-pill.settlement-complete,.settlement-order-pill.settlement-complete{color:#77dc9e;border-color:#28583d;background:#101e17}.settlement-pill.settlement-pending,.settlement-order-pill.settlement-pending{color:#e4c65e;border-color:#6a541f;background:#211c0f}.settlement-pill.settlement-unpaid,.settlement-order-pill.settlement-unpaid{color:#ffad72;border-color:#6a3e1f;background:#21170f}.settlement-panel .table td{vertical-align:top}.order-total-summary{justify-content:flex-end}.dash-accrual-grid{display:grid;grid-template-columns:1.2fr 1fr 1.15fr;gap:10px}.dash-accrual-group{border:1px solid #2b333b;border-radius:10px;overflow:hidden;background:#11161a}.dash-accrual-title{padding:9px 11px;font-size:10px;letter-spacing:.09em;text-transform:uppercase;font-weight:800;border-bottom:1px solid #2b333b;color:#8f99a4}.dash-accrual-group .table{min-width:0}.dash-accrual-group .table td{padding:10px 11px}.dash-accrual-group.departments .dash-accrual-title{color:#8db8ff}.dash-accrual-group.parts .dash-accrual-title{color:#ffb06f}.dash-accrual-total{display:flex;justify-content:space-between;gap:12px;margin-top:10px;padding:10px 12px;border:1px solid #303840;border-radius:10px;background:#171c21;color:#aeb6bf}.dash-accrual-total b{color:#fff}.orders-table-settlement,.settlement-complete{}.order-month .table tr.settlement-complete td{background:rgba(69,196,122,.055)}.order-month .table tr.settlement-pending td{background:rgba(224,190,64,.045)}.order-month .table tr.settlement-unpaid td{background:rgba(255,116,23,.025)}.appt-card.settlement-complete{border-left:3px solid var(--g);background:linear-gradient(145deg,#151e19,#111714)}.appt-card.settlement-pending{border-left:3px solid #d9bd4b;background:linear-gradient(145deg,#1d1b14,#151512)}.appt-card.settlement-unpaid{border-left:3px solid var(--o)}.appt-status.partial{color:#e4c65e;border-color:#6a541f;background:#211c0f}
+    @media(max-width:800px){.dash-accrual-grid{grid-template-columns:1fr}.settlement-amount-cell{align-items:flex-start;flex-direction:column}.settlement-action{width:100%}.settlement-action .btn{width:100%}}
+  `;document.head.appendChild(payoutStyle);
+  document.addEventListener('click',e=>{const x=document.getElementById('settlementDialog');if(x&&e.target===x)closeSettlementDialog()});
+  document.addEventListener('keydown',e=>{if(e.key==='Escape')closeSettlementDialog()});
+
 })();
 
 </script></body></html>
