@@ -691,7 +691,10 @@ function finances(m){
   f.d.Автомойка.paid=num(f.settled.departments.Автомойка);
   f.d.Автосервис.profit=f.d.Автосервис.paid-f.d.Автосервис.cons;
   f.d.Автомойка.profit=f.d.Автомойка.paid-f.d.Автомойка.cons;
-  f.revenue=num(f.settled.total);
+  // «Общая выгода» = фактически выплаченная выгода Автосервиса + Автомойки + сотрудников.
+  // Возврат закупочной стоимости запчастей сюда не входит.
+  const employeesPaid=Object.values(f.settled.employees||{}).reduce((sum,v)=>sum+num(v),0);
+  f.revenue=num(f.d.Автосервис.paid)+num(f.d.Автомойка.paid)+employeesPaid;
   f.net=f.d.Автосервис.profit+f.d.Автомойка.profit;
   f.common=f.net*0.05;
   return f;
@@ -1429,8 +1432,10 @@ function staffTableGrouped(f){
     f.d.Автосервис.profit=f.d.Автосервис.paid-f.d.Автосервис.cons;
     f.d.Автомойка.profit=f.d.Автомойка.paid-f.d.Автомойка.cons;
 
-    // «Общая выгода» — все фактически произведённые выплаты/расчёты за месяц.
-    f.revenue=num(f.settled.total);
+    // «Общая выгода» = фактически выплаченная выгода Автосервиса + Автомойки + сотрудников.
+    // Возврат закупочной стоимости запчастей сюда не входит.
+    const employeesPaid=Object.values(f.settled.employees||{}).reduce((sum,v)=>sum+num(v),0);
+    f.revenue=num(f.d.Автосервис.paid)+num(f.d.Автомойка.paid)+employeesPaid;
     f.net=f.d.Автосервис.profit+f.d.Автомойка.profit;
     f.common=f.net*0.05;
     return f;
