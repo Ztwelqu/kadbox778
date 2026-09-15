@@ -532,22 +532,37 @@ function cloudMarkDirty(v){cloudSyncMetaWrite({dirty:!!v,changedAt:Date.now()})}
 function cloudIsDirty(){return cloudSyncMetaRead().dirty===true}
 function cloudConfigured(){return !!(CLOUD_CONFIG.url&&CLOUD_CONFIG.anonKey)}
 function cloudHeaders(){return {'apikey':CLOUD_CONFIG.anonKey,'Authorization':'Bearer '+CLOUD_CONFIG.anonKey,'Content-Type':'application/json','Prefer':'return=minimal'}}
-async function cloudFetchState(){
-  if(!cloudConfigured()) return null;
-  const r=await fetch(CLOUD_CONFIG.url+'/rest/v1/'+encodeURIComponent(CLOUD_CONFIG.table)+'?id=eq.'+encodeURIComponent(CLOUD_CONFIG.rowId)+'&select=payload',{headers:cloudHeaders()});
+async function cloudFetchUpdatedAt(){
+  if(!cloudConfigured()) return '';
+  const r=await fetch(CLOUD_CONFIG.url+'/rest/v1/'+encodeURIComponent(CLOUD_CONFIG.table)+'?id=eq.'+encodeURIComponent(CLOUD_CONFIG.rowId)+'&select=updated_at',{headers:cloudHeaders(),cache:'no-store'});
   if(!r.ok) throw new Error('Облако: HTTP '+r.status);
   const a=await r.json();
-  return a.length?a[0].payload:null;
+  return a.length?(a[0].updated_at||''):'';
 }
-async function cloudPutState(data){
-  if(!cloudConfigured()) return;
-  let payload=clone(data);
-  try{
-    const remote=await cloudFetchState();
-    if(remote&&remote.__cashLedger&&!payload.__cashLedger) payload.__cashLedger=remote.__cashLedger;
-  }catch(e){ console.warn('Cash ledger preservation skipped:',e); }
-  const r=await fetch(CLOUD_CONFIG.url+'/rest/v1/'+encodeURIComponent(CLOUD_CONFIG.table),{method:'POST',headers:{...cloudHeaders(),'Prefer':'resolution=merge-duplicates,return=minimal'},body:JSON.stringify({id:CLOUD_CONFIG.rowId,payload,updated_at:new Date().toISOString()})});
+async function cloudFetchRow(){
+  if(!cloudConfigured()) return null;
+  const r=await fetch(CLOUD_CONFIG.url+'/rest/v1/'+encodeURIComponent(CLOUD_CONFIG.table)+'?id=eq.'+encodeURIComponent(CLOUD_CONFIG.rowId)+'&select=payload,updated_at',{headers:cloudHeaders(),cache:'no-store'});
   if(!r.ok) throw new Error('Облако: HTTP '+r.status);
+  const a=await r.json();
+  return a.length?a[0]:null;
+}
+async function cloudFetchState(){
+  const row=await cloudFetchRow();
+  return row?row.payload:null;
+}
+async function cloudPutState(data,options={}){
+  if(!cloudConfigured()) return '';
+  let payload=clone(data);
+  if(options.preserveCash!==false){
+    try{
+      const remote=await cloudFetchState();
+      if(remote&&remote.__cashLedger&&!payload.__cashLedger) payload.__cashLedger=remote.__cashLedger;
+    }catch(e){ console.warn('Cash ledger preservation skipped:',e); }
+  }
+  const updatedAt=new Date().toISOString();
+  const r=await fetch(CLOUD_CONFIG.url+'/rest/v1/'+encodeURIComponent(CLOUD_CONFIG.table),{method:'POST',headers:{...cloudHeaders(),'Prefer':'resolution=merge-duplicates,return=minimal'},body:JSON.stringify({id:CLOUD_CONFIG.rowId,payload,updated_at:updatedAt})});
+  if(!r.ok) throw new Error('Облако: HTTP '+r.status);
+  return updatedAt;
 }
 async function cloudSaveQueued(){
   if(!cloudConfigured()) return;
@@ -947,75 +962,47 @@ bootCloud();
   const top=$('newOrderTopBtn'), apTop=$('newAppointmentTopBtn');
   if(top && apTop) top.before(apTop);
 
-  // ===== Cloud: continuous polling and non-destructive merge =====
-  async function fetchCloudMeta(){
-    if(!cloudConfigured()) return null;
-    const u=CLOUD_CONFIG.url+'/rest/v1/'+encodeURIComponent(CLOUD_CONFIG.table)+'?id=eq.'+encodeURIComponent(CLOUD_CONFIG.rowId)+'&select=payload,updated_at';
-    const r=await fetch(u,{headers:cloudHeaders(),cache:'no-store'}); if(!r.ok) throw new Error('Облако: HTTP '+r.status);
-    const a=await r.json(); return a.length?a[0]:null;
-  }
-  function mergeById(localArr,remoteArr){
-    const map=new Map();
-    [...(remoteArr||[]),...(localArr||[])].forEach(x=>{if(x&&x.id) map.set(x.id,x)});
-    return [...map.values()];
-  }
-  function mergeCloudState(remote){
-    if(!remote) return db;
-    const out=clone(remote);
-    ['orders','appointments','consumables','trash'].forEach(k=>out[k]=mergeById(db[k],remote[k]));
-    // Settings need deletion-aware merging. A stale computer/cloud copy must not resurrect
-    // a scheme that was just deleted locally and moved to the trash.
-    const localSettings=clone(db.settings||{}), remoteSettings=clone(remote.settings||{});
-    const localSchemes=localSettings.schemes||{};
-    const remoteSchemes=remoteSettings.schemes||{};
-    const mergedSchemes={...remoteSchemes,...localSchemes};
-    const locallyDeletedSchemes=new Set((db.trash||[]).filter(x=>x.type==='scheme').map(x=>x.data?.name).filter(Boolean));
-    locallyDeletedSchemes.forEach(name=>{
-      if(!Object.prototype.hasOwnProperty.call(localSchemes,name)) delete mergedSchemes[name];
-    });
-    const mergedOrder=Array.isArray(localSettings.schemeOrder)?localSettings.schemeOrder.slice():[];
-    (Array.isArray(remoteSettings.schemeOrder)?remoteSettings.schemeOrder:[]).forEach(name=>{if(!mergedOrder.includes(name))mergedOrder.push(name)});
-    const cleanOrder=mergedOrder.filter(name=>Object.prototype.hasOwnProperty.call(mergedSchemes,name));
-    const remoteCommon=remoteSettings.commonPaidByMonth||{}, localCommon=localSettings.commonPaidByMonth||{};
-    const commonPaidByMonth={...remoteCommon};
-    new Set([...Object.keys(remoteCommon),...Object.keys(localCommon)]).forEach(monthKey=>{
-      const r=remoteCommon[monthKey], l=localCommon[monthKey];
-      const rr=(r&&typeof r==='object')?r:{paid:r===true,at:0};
-      const ll=(l&&typeof l==='object')?l:{paid:l===true,at:0};
-      commonPaidByMonth[monthKey]=(Number(ll.at||0)>=Number(rr.at||0))?ll:rr;
-    });
-    out.settings={...remoteSettings,...localSettings,schemes:mergedSchemes,schemeOrder:cleanOrder,commonPaidByMonth};
-    return norm(out);
-  }
+  // ===== Cloud: lightweight polling =====
+  // Каждые 2.5 секунды проверяем ТОЛЬКО updated_at (несколько десятков байт).
+  // Полный payload загружается лишь тогда, когда отметка времени реально изменилась.
+  // Это сохраняет быструю синхронизацию между компьютерами, но резко снижает Egress.
   async function cloudPoll(){
     if(!cloudConfigured()||cloudBusy||cloudDirty||cloudIsDirty()) return;
     try{
-      const row=await fetchCloudMeta();
+      const remoteUpdatedAt=await cloudFetchUpdatedAt();
+      if(!remoteUpdatedAt||remoteUpdatedAt===cloudLastUpdated) return;
+
+      const row=await cloudFetchRow();
       if(!row) return;
+      // Если между metadata-запросом и загрузкой строки уже пришло ещё одно изменение,
+      // используем фактический updated_at полной строки.
+      const rowUpdatedAt=row.updated_at||remoteUpdatedAt;
       const remote=row.payload;
       const remoteHash=hashState(remote);
-      if(remoteHash===cloudLastCloudHash) return;
+      if(remoteHash===cloudLastCloudHash){
+        cloudLastUpdated=rowUpdatedAt;
+        return;
+      }
 
       const localHas=cloudHasBusinessData(db), remoteHas=cloudHasBusinessData(remote);
       if(localHas && !remoteHas){
         // Пустой cloud payload не должен стирать рабочую базу.
         cloudMarkDirty(true);
         try{
-          await cloudPutState(db);
+          const savedAt=await cloudPutState(db);
           cloudLastCloudHash=hashState(db);
+          cloudLastUpdated=savedAt||rowUpdatedAt;
           cloudMarkDirty(false);
         }catch(e){
           cloudMarkDirty(true);
           throw e;
         }
       }else{
-        // Пока на этом браузере нет несохранённых изменений, любое изменение
-        // центрального payload принимаем целиком. Поэтому синхронизируются не
-        // только новые заказы, но и правки существующих записей/настроек/Общака.
+        // Пока на этом браузере нет несохранённых изменений, облачная копия — источник истины.
         db=norm(remote);
         localStorage.setItem(KEY,JSON.stringify(db));
         cloudLastCloudHash=remoteHash;
-        cloudLastUpdated=row.updated_at||'';
+        cloudLastUpdated=rowUpdatedAt;
         cloudMarkDirty(false);
         renderAll();
       }
@@ -1024,7 +1011,6 @@ bootCloud();
     }catch(e){console.error('cloud poll',e);}
   }
   let cloudLastCloudHash='';
-  const oldCloudSave=cloudSaveQueued;
   let cloudSaveRevision=0;
   cloudSaveQueued=async function(){
     if(!cloudConfigured()) return;
@@ -1033,13 +1019,11 @@ bootCloud();
     cloudMarkDirty(true);
     const snapshot=clone(db);
     cloudQueue=cloudQueue.then(async()=>{
-      await cloudPutState(snapshot);
-      let row=null;
-      try{row=await fetchCloudMeta()}catch(e){console.warn('cloud verify',e)}
-      cloudLastCloudHash=hashState(row?.payload||snapshot);
-      cloudLastUpdated=row?.updated_at||cloudLastUpdated;
-      // Если после этого snapshot уже появился новый save, dirty должен остаться true
-      // до завершения последней записи в очереди.
+      // cloudPutState возвращает тот updated_at, который записан в строку.
+      // Повторно скачивать весь payload для "проверки" больше не нужно.
+      const savedAt=await cloudPutState(snapshot);
+      cloudLastCloudHash=hashState(snapshot);
+      cloudLastUpdated=savedAt||cloudLastUpdated;
       if(revision===cloudSaveRevision){
         cloudDirty=false;
         cloudMarkDirty(false);
@@ -1648,7 +1632,7 @@ window.toggleAppointmentPaid=function(id){
    main Supabase row, while the core application never reads that key into db or calculations. */
 (()=>{
  const CASH_KEY='KAD_BOKS778_CASH_LEDGER_V3',OLD=['KAD_BOKS778_CASH_LEDGER_V2','KAD_BOKS778_CASH_LEDGER_V1'],CASH_CLOUD_KEY='__cashLedger';
- let cashEvents=[],cashTrashEvents=[],cashEditingId='',cashCloudReady=false,cashCloudBusy=false,cashCloudQueue=Promise.resolve(),cashCloudHash='';
+ let cashEvents=[],cashTrashEvents=[],cashEditingId='',cashCloudReady=false,cashCloudBusy=false,cashCloudQueue=Promise.resolve(),cashCloudHash='',cashCloudUpdatedAt='';
  const $=id=>document.getElementById(id),n=x=>Number(x)||0,money=x=>new Intl.NumberFormat('ru-RU',{maximumFractionDigits:2}).format(n(x))+' ₽';
  const esc=s=>String(s??'').replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));
  const todayLocal=()=>{const d=new Date();return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0')};
@@ -1663,11 +1647,11 @@ window.toggleAppointmentPaid=function(id){
  function loadCash(){try{let raw=localStorage.getItem(CASH_KEY);if(raw){const p=JSON.parse(raw);cashEvents=normalizeEvents(p.events);cashTrashEvents=normalizeEvents(p.trashEvents)}else{for(const key of OLD){raw=localStorage.getItem(key);if(raw)break}if(raw){const old=JSON.parse(raw),arr=Array.isArray(old)?old:normalizeEvents(old);cashEvents=Array.isArray(arr)?arr.map(x=>x?.action?normalizeEvent(x):{id:uid(),action:'upsert',at:Number(x.createdAt)||Date.now(),item:x}).filter(Boolean):[];persistCash()}}}catch(e){console.error('cash load',e);cashEvents=[];cashTrashEvents=[]}}
  function persistCash(){localStorage.setItem(CASH_KEY,JSON.stringify(localPayload()))}
  function status(t,bad=false){const s=$('cashCloudStatus');if(s){s.textContent=t;s.style.color=bad?'#ff9b7a':'#77dc9e'}}
- async function readCloudLedger(){if(typeof cloudFetchState!=='function')throw new Error('Облачный клиент недоступен');return normalizeCloud(await cloudFetchState())}
- async function writeCloudLedger(ledger){if(typeof cloudFetchState!=='function'||typeof cloudPutState!=='function')throw new Error('Облачный клиент недоступен');const payload=await cloudFetchState()||{};const cur=normalizeCloud(payload);const merged={events:mergeEvents(cur.events,ledger.events),trashEvents:mergeEvents(cur.trashEvents,ledger.trashEvents)};payload[CASH_CLOUD_KEY]={version:3,events:merged.events,trashEvents:merged.trashEvents};await cloudPutState(payload);return merged}
- async function bootCloud(){if(typeof cloudConfigured!=='function'||!cloudConfigured()){status('● Касса: локальный режим');return}cashCloudBusy=true;try{const remote=await readCloudLedger();cashEvents=mergeEvents(cashEvents,remote.events);cashTrashEvents=mergeEvents(cashTrashEvents,remote.trashEvents);persistCash();const before=JSON.stringify(localPayload());if(JSON.stringify(remote)!==JSON.stringify(localPayload())){const merged=await writeCloudLedger(localPayload());cashEvents=merged.events;cashTrashEvents=merged.trashEvents;persistCash()}cashCloudHash=JSON.stringify(localPayload());cashCloudReady=true;status('● Касса синхронизирована с облаком');renderCash();renderCashTrashBridge()}catch(e){console.error('cash cloud boot',e);status('⚠ Ошибка синхронизации кассы',true)}finally{cashCloudBusy=false}}
- async function syncNow(){if(typeof cloudConfigured!=='function'||!cloudConfigured()||!cashCloudReady||cashCloudBusy)return;cashCloudBusy=true;try{const remote=await readCloudLedger();const merged={events:mergeEvents(remote.events,cashEvents),trashEvents:mergeEvents(remote.trashEvents,cashTrashEvents)};const h=JSON.stringify(merged);if(h!==JSON.stringify(localPayload())){cashEvents=merged.events;cashTrashEvents=merged.trashEvents;persistCash();renderCash();renderCashTrashBridge()}if(h!==cashCloudHash){const saved=await writeCloudLedger(merged);cashEvents=mergeEvents(cashEvents,saved.events);cashTrashEvents=mergeEvents(cashTrashEvents,saved.trashEvents);persistCash();cashCloudHash=JSON.stringify(localPayload())}status('● Касса синхронизирована с облаком')}catch(e){console.error('cash cloud sync',e);status('⚠ Ошибка синхронизации кассы',true)}finally{cashCloudBusy=false}}
- function queueSave(){if(typeof cloudConfigured!=='function'||!cloudConfigured())return;const localSnapshot={events:cashEvents.slice(),trashEvents:cashTrashEvents.slice()};cashCloudQueue=cashCloudQueue.then(async()=>{try{const merged=await writeCloudLedger(localSnapshot);cashEvents=mergeEvents(cashEvents,merged.events);cashTrashEvents=mergeEvents(cashTrashEvents,merged.trashEvents);persistCash();cashCloudHash=JSON.stringify(localPayload());cashCloudReady=true;status('● Касса синхронизирована с облаком');renderCash();renderCashTrashBridge()}catch(e){console.error('cash queue',e);status('⚠ Ошибка синхронизации кассы',true)}})}
+ async function readCloudLedgerRow(){if(typeof cloudFetchRow!=='function')throw new Error('Облачный клиент недоступен');const row=await cloudFetchRow();return {ledger:normalizeCloud(row?.payload||{}),updatedAt:row?.updated_at||''}}
+ async function writeCloudLedger(ledger){if(typeof cloudFetchState!=='function'||typeof cloudPutState!=='function')throw new Error('Облачный клиент недоступен');const payload=await cloudFetchState()||{};const cur=normalizeCloud(payload);const merged={events:mergeEvents(cur.events,ledger.events),trashEvents:mergeEvents(cur.trashEvents,ledger.trashEvents)};payload[CASH_CLOUD_KEY]={version:3,events:merged.events,trashEvents:merged.trashEvents};const updatedAt=await cloudPutState(payload,{preserveCash:false});return {merged,updatedAt}}
+ async function bootCloud(){if(typeof cloudConfigured!=='function'||!cloudConfigured()){status('● Касса: локальный режим');return}cashCloudBusy=true;try{const row=await readCloudLedgerRow();const remote=row.ledger;cashCloudUpdatedAt=row.updatedAt||'';cashEvents=mergeEvents(cashEvents,remote.events);cashTrashEvents=mergeEvents(cashTrashEvents,remote.trashEvents);persistCash();const mergedNow={events:cashEvents,trashEvents:cashTrashEvents};if(JSON.stringify(remote)!==JSON.stringify(mergedNow)){const saved=await writeCloudLedger(mergedNow);cashEvents=saved.merged.events;cashTrashEvents=saved.merged.trashEvents;cashCloudUpdatedAt=saved.updatedAt||cashCloudUpdatedAt;persistCash()}cashCloudHash=JSON.stringify(localPayload());cashCloudReady=true;status('● Касса синхронизирована с облаком');renderCash();renderCashTrashBridge()}catch(e){console.error('cash cloud boot',e);status('⚠ Ошибка синхронизации кассы',true)}finally{cashCloudBusy=false}}
+ async function syncNow(){if(typeof cloudConfigured!=='function'||!cloudConfigured()||!cashCloudReady||cashCloudBusy)return;cashCloudBusy=true;try{const remoteUpdatedAt=await cloudFetchUpdatedAt();if(!remoteUpdatedAt||remoteUpdatedAt===cashCloudUpdatedAt){status('● Касса синхронизирована с облаком');return}const row=await readCloudLedgerRow();const remote=row.ledger;cashCloudUpdatedAt=row.updatedAt||remoteUpdatedAt;const localBefore={events:cashEvents,trashEvents:cashTrashEvents};const merged={events:mergeEvents(remote.events,cashEvents),trashEvents:mergeEvents(remote.trashEvents,cashTrashEvents)};const mergedHash=JSON.stringify(merged),remoteHash=JSON.stringify(remote),localHash=JSON.stringify(localBefore);if(mergedHash!==localHash){cashEvents=merged.events;cashTrashEvents=merged.trashEvents;persistCash();renderCash();renderCashTrashBridge()}if(mergedHash!==remoteHash){const saved=await writeCloudLedger(merged);cashEvents=saved.merged.events;cashTrashEvents=saved.merged.trashEvents;cashCloudUpdatedAt=saved.updatedAt||cashCloudUpdatedAt;persistCash()}cashCloudHash=JSON.stringify(localPayload());status('● Касса синхронизирована с облаком')}catch(e){console.error('cash cloud sync',e);status('⚠ Ошибка синхронизации кассы',true)}finally{cashCloudBusy=false}}
+ function queueSave(){if(typeof cloudConfigured!=='function'||!cloudConfigured())return;const localSnapshot={events:cashEvents.slice(),trashEvents:cashTrashEvents.slice()};cashCloudQueue=cashCloudQueue.then(async()=>{try{const saved=await writeCloudLedger(localSnapshot);cashEvents=mergeEvents(cashEvents,saved.merged.events);cashTrashEvents=mergeEvents(cashTrashEvents,saved.merged.trashEvents);cashCloudUpdatedAt=saved.updatedAt||cashCloudUpdatedAt;persistCash();cashCloudHash=JSON.stringify(localPayload());cashCloudReady=true;status('● Касса синхронизирована с облаком');renderCash();renderCashTrashBridge()}catch(e){console.error('cash queue',e);status('⚠ Ошибка синхронизации кассы',true)}})}
  function addEvent(action,item){cashEvents=mergeEvents(cashEvents,[{id:uid(),action,at:Date.now(),item:item||null}]);persistCash();renderCash();queueSave()}
  function addTrashEvent(action,item){cashTrashEvents=mergeEvents(cashTrashEvents,[{id:uid(),action,at:Date.now(),item:item||null}]);persistCash();renderCashTrashBridge();if(typeof window.updateTrashBadge==='function')window.updateTrashBadge();queueSave()}
  function apptOptions(selected=''){const appts=(typeof db!=='undefined'&&Array.isArray(db.appointments))?db.appointments:[],arr=[...appts].sort((a,b)=>String((b.date||'')+' '+(b.time||'')).localeCompare(String((a.date||'')+' '+(a.time||''))));return '<option value="">— Без привязки —</option>'+arr.map(a=>{const label=`${a.date||'—'} ${a.time||''} · ${a.client||'Без клиента'}${a.car?' · '+a.car:''}`;return `<option value="${esc(a.id)}" ${a.id===selected?'selected':''}>${esc(label)}</option>`}).join('')}
