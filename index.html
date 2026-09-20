@@ -514,11 +514,20 @@ async function crmApiCall(action,extra={},options={}){
   if(!r.ok){const err=new Error((data&&data.error)||('HTTP '+r.status));err.status=r.status;err.code=data&&data.code;if(r.status===401&&!options.noAuth&&sess?.token){clearAuthSession();const gate=document.getElementById('authGate');if(gate)gate.classList.remove('hidden');}throw err}
   return data;
 }
+async function crmWriteCall(extra={}){
+  const sess=authSessionRead();
+  if(!sess?.token)throw new Error('Требуется вход в систему');
+  const headers={'apikey':CLOUD_CONFIG.anonKey,'Content-Type':'application/json','x-crm-session':sess.token};
+  const r=await fetch(CLOUD_CONFIG.url+'/functions/v1/kadbox778-write',{method:'POST',headers,body:JSON.stringify(extra),cache:'no-store'});
+  const text=await r.text();let data={};try{data=text?JSON.parse(text):{}}catch(e){data={error:text}}
+  if(!r.ok){const err=new Error((data&&data.error)||('HTTP '+r.status));err.status=r.status;err.code=data&&data.code;err.data=data;if(r.status===401){clearAuthSession();const gate=document.getElementById('authGate');if(gate)gate.classList.remove('hidden')}throw err}
+  return data;
+}
 function toggleAuthPassword(){const input=document.getElementById('authPassword'),btn=document.getElementById('authPasswordToggle'),icon=document.getElementById('authEyeIcon');if(!input)return;const visible=input.type==='text';input.type=visible?'password':'text';if(btn){btn.setAttribute('aria-label',visible?'Показать пароль':'Скрыть пароль');btn.title=visible?'Показать пароль':'Скрыть пароль'}if(icon){icon.innerHTML=visible?'<path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7S2 12 2 12Z"></path><circle cx="12" cy="12" r="3"></circle>':'<path d="M3 3l18 18"></path><path d="M10.58 10.58a2 2 0 0 0 2.83 2.83"></path><path d="M9.88 4.24A10.9 10.9 0 0 1 12 4c6.5 0 10 8 10 8a18.5 18.5 0 0 1-3.04 4.2"></path><path d="M6.61 6.61C3.92 8.48 2 12 2 12a18.5 18.5 0 0 0 5.15 5.1A10.7 10.7 0 0 0 12 20c1.15 0 2.25-.18 3.28-.5"></path>'}}
 function authRoleChanged(){const role=document.getElementById('authRole').value;const creds=document.getElementById('authCredentials');const hint=document.getElementById('authHint');const submit=document.getElementById('authSubmit');document.getElementById('authError').classList.remove('show');creds.style.display='block';hint.textContent=role==='admin'?'Администрация: полный доступ ко всем функциям.':'Персонал: рабочий доступ; настройки, удаления и расчёты администрации недоступны.';submit.textContent='Войти';}
 async function attemptLogin(){const role=document.getElementById('authRole').value,login=document.getElementById('authLogin').value,pass=document.getElementById('authPassword').value;const errBox=document.getElementById('authError'),btn=document.getElementById('authSubmit');errBox.classList.remove('show');btn.disabled=true;btn.textContent='Проверяю…';try{const data=await crmApiCall('login',{role,login,password:pass},{noAuth:true});saveAuthSession(data.role||role,data.token,data.expiresAt);document.getElementById('authPassword').value='';finishAuth()}catch(e){errBox.textContent=e.message==='Account not configured'?'Безопасная авторизация ещё не настроена для этой роли.':(e.message||'Не удалось войти.');errBox.classList.add('show')}finally{btn.disabled=false;btn.textContent='Войти'}}
 function finishAuth(){document.getElementById('authGate').classList.add('hidden');const b=document.getElementById('authRoleBadge');b.textContent=ROLE_NAMES[currentRole];b.className='badge auth-role-badge '+(currentRole==='admin'?'green':'');b.classList.toggle('scrolled-away',window.scrollY>8);applyRoleUI();renderAll();if(typeof bootCloud==='function')bootCloud();document.dispatchEvent(new CustomEvent('kad-auth-ready'));}window.addEventListener('scroll',()=>{const b=document.getElementById('authRoleBadge');if(!b)return;b.classList.toggle('scrolled-away',window.scrollY>8)});
-function applyRoleUI(){const adminOnly=document.querySelectorAll('[data-admin-only="1"]');adminOnly.forEach(el=>el.classList.toggle('role-hidden',currentRole!=='admin'));document.querySelectorAll('[data-staff-create="1"]').forEach(el=>el.classList.toggle('role-hidden',currentRole==='viewer'));const staffPage=document.querySelector('[data-page="staff"]'),settingsPage=document.querySelector('[data-page="settings"]'),trashPage=document.querySelector('[data-page="trash"]');[staffPage,settingsPage,trashPage].forEach(el=>{if(el)el.classList.toggle('role-hidden',currentRole!=='admin')});const logout=document.getElementById('authLogout');if(logout)logout.style.display='block';const active=document.querySelector('.page.active');if(currentRole!=='admin'&&active&&(active.id==='staff'||active.id==='settings'||active.id==='trash'))showPage('dashboard');}
+function applyRoleUI(){const adminOnly=document.querySelectorAll('[data-admin-only="1"]');adminOnly.forEach(el=>el.classList.toggle('role-hidden',currentRole!=='admin'));document.querySelectorAll('[data-staff-create="1"]').forEach(el=>el.classList.remove('role-hidden'));const staffPage=document.querySelector('[data-page="staff"]'),settingsPage=document.querySelector('[data-page="settings"]'),trashPage=document.querySelector('[data-page="trash"]');[staffPage,settingsPage,trashPage].forEach(el=>{if(el)el.classList.toggle('role-hidden',currentRole!=='admin')});const logout=document.getElementById('authLogout');if(logout)logout.style.display='block';const active=document.querySelector('.page.active');if(currentRole!=='admin'&&active&&(active.id==='staff'||active.id==='settings'||active.id==='trash'))showPage('dashboard');}
 function logout(){clearAuthSession();location.reload()}
 function authCanOpenPage(p){if(currentRole==='admin')return true;if(p==='staff'||p==='settings'||p==='trash'||p==='cash')return false;return true}
 
@@ -533,12 +542,77 @@ const CLOUD_CONFIG={
   table:'kadbox778_state',
   rowId:'main'
 };
-let cloudReady=false, cloudBusy=false, cloudQueue=Promise.resolve();
+let cloudReady=false, cloudBusy=false, cloudQueue=Promise.resolve(), cloudMainUpdatedAt='';
 const CLOUD_SYNC_META_KEY='KAD_BOKS778_CLOUD_SYNC_META_V2';
+const CLOUD_BASE_KEY='KAD_BOKS778_CLOUD_BASE_V1';
+const CLOUD_CONFLICT_KEY='KAD_BOKS778_CLOUD_CONFLICT_V1';
 function cloudSyncMetaRead(){try{return JSON.parse(localStorage.getItem(CLOUD_SYNC_META_KEY)||'{}')||{}}catch(e){return {}}}
 function cloudSyncMetaWrite(patch){try{const m={...cloudSyncMetaRead(),...patch};localStorage.setItem(CLOUD_SYNC_META_KEY,JSON.stringify(m));return m}catch(e){return {}}}
-function cloudMarkDirty(v){cloudSyncMetaWrite({dirty:!!v,changedAt:Date.now()})}
+function cloudBaseRead(){try{return JSON.parse(localStorage.getItem(CLOUD_BASE_KEY)||'null')}catch(e){return null}}
+function cloudBaseWrite(state,updatedAt){try{localStorage.setItem(CLOUD_BASE_KEY,JSON.stringify({updatedAt:updatedAt||'',state:clone(state)}))}catch(e){console.warn('cloud base save',e)}}
+function cloudMarkDirty(v){
+  const m=cloudSyncMetaRead();
+  if(v){
+    const patch={dirty:true,changedAt:Date.now()};
+    if(!m.dirty)patch.baseUpdatedAt=cloudMainUpdatedAt||cloudBaseRead()?.updatedAt||'';
+    cloudSyncMetaWrite(patch);
+  }else cloudSyncMetaWrite({dirty:false,changedAt:Date.now(),baseUpdatedAt:cloudMainUpdatedAt||''});
+}
 function cloudIsDirty(){return cloudSyncMetaRead().dirty===true}
+function cloudSame(a,b){if(a===undefined&&b===undefined)return true;try{return JSON.stringify(a)===JSON.stringify(b)}catch(e){return false}}
+function cloudMergeArrayById(label,baseArr,localArr,remoteArr,conflicts){
+  const arrays=[baseArr,localArr,remoteArr].map(x=>Array.isArray(x)?x:[]);
+  if(arrays.some(a=>a.some(x=>!x||x.id==null))){
+    if(cloudSame(arrays[1],arrays[0]))return clone(arrays[2]);
+    if(cloudSame(arrays[2],arrays[0])||cloudSame(arrays[1],arrays[2]))return clone(arrays[1]);
+    conflicts.push(label);return clone(arrays[1]);
+  }
+  const maps=arrays.map(a=>new Map(a.map(x=>[String(x.id),x])));
+  const ids=[];[...arrays[2],...arrays[1],...arrays[0]].forEach(x=>{const id=String(x.id);if(!ids.includes(id))ids.push(id)});
+  const out=[];
+  ids.forEach(id=>{
+    const b=maps[0].get(id),l=maps[1].get(id),r=maps[2].get(id);
+    let chosen;
+    if(cloudSame(l,b))chosen=r;
+    else if(cloudSame(r,b))chosen=l;
+    else if(cloudSame(l,r))chosen=l;
+    else{conflicts.push(label+':'+id);chosen=l}
+    if(chosen!==undefined)out.push(clone(chosen));
+  });
+  return out;
+}
+function cloudThreeWayMerge(base,local,remote){
+  const conflicts=[];
+  const merged={
+    orders:cloudMergeArrayById('orders',base?.orders,local?.orders,remote?.orders,conflicts),
+    appointments:cloudMergeArrayById('appointments',base?.appointments,local?.appointments,remote?.appointments,conflicts),
+    consumables:cloudMergeArrayById('consumables',base?.consumables,local?.consumables,remote?.consumables,conflicts),
+    trash:cloudMergeArrayById('trash',base?.trash,local?.trash,remote?.trash,conflicts)
+  };
+  const bs=base?.settings,ls=local?.settings,rs=remote?.settings;
+  if(cloudSame(ls,bs))merged.settings=clone(rs||{});
+  else if(cloudSame(rs,bs)||cloudSame(ls,rs))merged.settings=clone(ls||{});
+  else{conflicts.push('settings');merged.settings=clone(ls||{})}
+  return {merged,conflicts};
+}
+function cloudStoreConflict(local,remote,base,conflicts){
+  try{localStorage.setItem(CLOUD_CONFLICT_KEY,JSON.stringify({createdAt:new Date().toISOString(),conflicts:conflicts||[],local:clone(local),remote:clone(remote),base:base?clone(base):null}))}catch(e){console.warn('conflict snapshot',e)}
+}
+function cloudHideConflict(){document.getElementById('cloudConflictBanner')?.remove()}
+function cloudShowConflict(conflicts=[]){
+  cloudHideConflict();
+  const box=document.createElement('div');box.id='cloudConflictBanner';
+  box.style.cssText='position:fixed;left:50%;bottom:18px;transform:translateX(-50%);z-index:12000;width:min(760px,calc(100vw - 28px));background:#291b12;border:1px solid #a76027;border-radius:14px;padding:14px 16px;box-shadow:0 18px 55px #000c;color:#fff';
+  box.innerHTML='<div style="font-weight:800;margin-bottom:5px">⚠ Конфликт синхронизации</div><div style="font-size:12px;color:#e8c39f;margin-bottom:10px">Другой компьютер изменил те же данные. Облачная база НЕ перезаписана. Твоя локальная версия сохранена отдельно.</div><div style="display:flex;gap:8px;flex-wrap:wrap"><button class="btn small" type="button" onclick="cloudDownloadConflictCopy()">Скачать мою копию</button><button class="btn small primary" type="button" onclick="cloudUseRemoteVersion()">Загрузить свежую версию из облака</button></div>';
+  document.body.appendChild(box);
+}
+window.cloudDownloadConflictCopy=function(){
+  try{const raw=localStorage.getItem(CLOUD_CONFLICT_KEY);if(!raw)return showToast('Конфликтная копия не найдена.');const a=document.createElement('a');a.href=URL.createObjectURL(new Blob([raw],{type:'application/json'}));a.download='KAD_Boks778_SYNC_CONFLICT_'+new Date().toISOString().replace(/[:.]/g,'-')+'.json';a.click();setTimeout(()=>URL.revokeObjectURL(a.href),500)}catch(e){console.error(e);showToast('Не удалось скачать конфликтную копию.')}
+};
+window.cloudUseRemoteVersion=async function(){
+  if(!confirm('Загрузить актуальную облачную версию? Текущая локальная конфликтная копия останется сохранена и её можно скачать.'))return;
+  try{const row=await cloudFetchRow();if(!row?.payload)throw new Error('Облачная база не получена');db=norm(row.payload);cloudMainUpdatedAt=row.updated_at||'';localStorage.setItem(KEY,JSON.stringify(db));cloudBaseWrite(db,cloudMainUpdatedAt);cloudMarkDirty(false);cloudHideConflict();renderAll();const st=document.getElementById('saveState');if(st)st.textContent='● Загружена актуальная облачная версия';showToast('Актуальная версия загружена из облака.')}catch(e){console.error(e);showToast('Не удалось загрузить облачную версию.')}
+};
 function cloudConfigured(){return !!(CLOUD_CONFIG.url&&CLOUD_CONFIG.anonKey)}
 async function cloudFetchUpdatedAt(){
   if(!cloudConfigured()) return '';
@@ -556,7 +630,8 @@ async function cloudFetchState(){
 }
 async function cloudPutState(data,options={}){
   if(!cloudConfigured()) return '';
-  const result=await crmApiCall('write',{payload:clone(data),preserveCash:options.preserveCash!==false});
+  const expected=Object.prototype.hasOwnProperty.call(options,'expectedUpdatedAt')?options.expectedUpdatedAt:cloudMainUpdatedAt;
+  const result=await crmWriteCall({payload:clone(data),preserveCash:options.preserveCash!==false,expectedUpdatedAt:expected||''});
   return result?.updatedAt||'';
 }
 async function cloudSaveQueued(){
@@ -573,44 +648,86 @@ function cloudSettlementCount(state){
   return (state?.orders||[]).reduce((n,o)=>n+Object.keys(o?.settlements||{}).length,0);
 }
 async function bootCloud(){
-  if(!cloudConfigured()) return;
+  if(!cloudConfigured()||!validAuthSession()) return;
   cloudBusy=true;
   const localSnapshot=clone(db);
   const localHas=cloudHasBusinessData(localSnapshot);
   const localDirty=cloudIsDirty();
   try{
-    const remote=await cloudFetchState();
+    const row=await cloudFetchRow();
+    const remote=row?.payload||null;
+    const remoteUpdatedAt=row?.updated_at||'';
     const remoteHas=cloudHasBusinessData(remote);
+    const baseInfo=cloudBaseRead();
+    const meta=cloudSyncMetaRead();
+
     if(!remote){
-      await cloudPutState(localSnapshot);
+      const savedAt=await cloudPutState(localSnapshot,{expectedUpdatedAt:''});
+      cloudMainUpdatedAt=savedAt||'';
+      cloudBaseWrite(localSnapshot,cloudMainUpdatedAt);
       cloudMarkDirty(false);
       document.getElementById('saveState').textContent='● Облако настроено, локальные данные сохранены';
-    }else if(localDirty && localHas){
-      // На этом браузере остались изменения, которые раньше не дошли до облака.
-      // Сначала сохраняем их, чтобы перезагрузка страницы не уничтожила локальную работу.
-      await cloudPutState(localSnapshot);
-      cloudMarkDirty(false);
-      document.getElementById('saveState').textContent='● Локальные изменения отправлены в облако';
-    }else if(localHas && !remoteHas){
-      // Защита от случайно пустого облачного payload.
-      await cloudPutState(localSnapshot);
+    }else if(localDirty&&localHas){
+      const baseState=baseInfo?.state||null;
+      const baseUpdatedAt=meta.baseUpdatedAt||baseInfo?.updatedAt||'';
+      if(!baseState||!baseUpdatedAt){
+        cloudStoreConflict(localSnapshot,remote,null,['unknown-base']);
+        cloudShowConflict(['unknown-base']);
+        document.getElementById('saveState').textContent='⚠ Конфликт синхронизации · облако не изменено';
+        cloudReady=true;return;
+      }
+      if(remoteUpdatedAt===baseUpdatedAt){
+        cloudMainUpdatedAt=baseUpdatedAt;
+        const savedAt=await cloudPutState(localSnapshot,{expectedUpdatedAt:baseUpdatedAt});
+        cloudMainUpdatedAt=savedAt||baseUpdatedAt;
+        cloudBaseWrite(localSnapshot,cloudMainUpdatedAt);
+        cloudMarkDirty(false);
+        document.getElementById('saveState').textContent='● Локальные изменения отправлены в облако';
+      }else{
+        const m=cloudThreeWayMerge(baseState,localSnapshot,remote);
+        if(m.conflicts.length){
+          cloudStoreConflict(localSnapshot,remote,baseState,m.conflicts);
+          cloudShowConflict(m.conflicts);
+          document.getElementById('saveState').textContent='⚠ Конфликт синхронизации · облако не изменено';
+          cloudReady=true;return;
+        }
+        db=norm(m.merged);localStorage.setItem(KEY,JSON.stringify(db));
+        cloudMainUpdatedAt=remoteUpdatedAt;
+        const savedAt=await cloudPutState(db,{expectedUpdatedAt:remoteUpdatedAt});
+        cloudMainUpdatedAt=savedAt||remoteUpdatedAt;
+        cloudBaseWrite(db,cloudMainUpdatedAt);
+        cloudMarkDirty(false);renderAll();
+        document.getElementById('saveState').textContent='● Изменения автоматически объединены';
+      }
+    }else if(localHas&&!remoteHas){
+      cloudMainUpdatedAt=remoteUpdatedAt;
+      const savedAt=await cloudPutState(localSnapshot,{expectedUpdatedAt:remoteUpdatedAt});
+      cloudMainUpdatedAt=savedAt||remoteUpdatedAt;
+      cloudBaseWrite(localSnapshot,cloudMainUpdatedAt);
       cloudMarkDirty(false);
       document.getElementById('saveState').textContent='● Локальная база восстановлена в облако';
     }else{
-      // Если локальных НЕотправленных изменений нет, центральная облачная копия
-      // является источником истины. Это устраняет рассинхрон между компьютерами
-      // при одинаковом количестве заказов (изменение записи, Общака и т.п.).
       db=norm(remote);
+      cloudMainUpdatedAt=remoteUpdatedAt;
       localStorage.setItem(KEY,JSON.stringify(db));
+      cloudBaseWrite(db,cloudMainUpdatedAt);
       cloudMarkDirty(false);
+      cloudHideConflict();
       renderAll();
       document.getElementById('saveState').textContent='● Данные загружены из облака';
     }
     cloudReady=true;
   }catch(e){
     console.error(e);
-    document.getElementById('saveState').textContent='⚠ Облако недоступно · локальный режим';
-    showToast('Не удалось подключиться к облаку. Приложение продолжает работать локально.');
+    if(e?.code==='SYNC_CONFLICT'){
+      const row=await cloudFetchRow().catch(()=>null),base=cloudBaseRead()?.state||null;
+      cloudStoreConflict(localSnapshot,row?.payload||null,base,['boot-write']);
+      cloudShowConflict(['boot-write']);
+      document.getElementById('saveState').textContent='⚠ Конфликт синхронизации · облако не изменено';
+    }else{
+      document.getElementById('saveState').textContent='⚠ Облако недоступно · локальный режим';
+      showToast('Не удалось подключиться к облаку. Приложение продолжает работать локально.');
+    }
   }finally{cloudBusy=false;}
 }
 
@@ -636,7 +753,7 @@ db.trash.splice(i,1);save('✓ Данные восстановлены');renderA
 function deleteTrashForever(id){if(!hasPerm('trash')){showToast('Корзина доступна только администрации.');return}let i=(db.trash||[]).findIndex(x=>x.id===id);if(i<0)return;if(!confirm('Удалить эти данные навсегда? Восстановить их после этого будет невозможно.'))return;db.trash.splice(i,1);save('✓ Данные удалены навсегда');renderTrash();showToast('Данные окончательно удалены.')}
 async function emptyTrash(){if(!hasPerm('trash')){showToast('Корзина доступна только администрации.');return}purgeTrash();if(!db.trash.length)return showToast('Корзина уже пуста.');if(!confirm('Удалить ВСЕ данные из корзины навсегда? Это действие нельзя отменить.'))return;let ok=window.kadBackupBeforeAction?await window.kadBackupBeforeAction('before-empty-trash'):true;if(!ok)return;db.trash=[];save('✓ Корзина очищена');renderTrash();showToast('Корзина полностью очищена.')}
 function renderTrash(){purgeTrash();let b=document.getElementById('trashBox'),items=[...(db.trash||[])].sort((a,c)=>Number(c.deletedAt)-Number(a.deletedAt));updateTrashBadge();if(!items.length){b.innerHTML='<div class="trashEmpty">Корзина пуста. Здесь появятся удалённые записи, заказы, сотрудники и другие данные.</div>';return}b.innerHTML=items.map(x=>{let name='',info='';if(x.type==='order'){let a=appointmentById(x.data.appointmentId);name='Заказ · '+(a?.car||x.data.car||'без автомобиля');info=(a?.client||x.data.client||'')+' · '+(x.data.date||'')}else if(x.type==='appointment'){name='Запись · '+(x.data.client||'без клиента');info=(x.data.car||'')+' · '+(x.data.date||'')+' '+(x.data.time||'')}else if(x.type==='consumable'){name='Расходник · '+x.data.name;info=x.data.department+' · '+x.data.amount+' ₽ · '+x.data.date}else if(x.type==='category'){name='Категория работ · '+x.data.name;info=x.data.scheme?'Схема по умолчанию тоже сохранена':'Схемы по умолчанию не было'}else if(x.type==='scheme'){name='Схема расчёта · '+x.data.name;info=x.data.scheme?.department||'Автосервис'}else if(x.type==='rule'){name='Правило расчёта';info='Схема: '+(x.extra?.schemeName||'—')}else{name=trashLabel(x.type)+' · '+x.data;info=''}let days=Math.max(0,Math.ceil((30-(Date.now()-Number(x.deletedAt||Date.now()))/86400000)));return`<div class="trashItem"><div class="trashMeta"><div><div class="trashTitle">${esc(name)}</div><div class="trashInfo">${esc(info)} · удалить автоматически через ${days} дн.</div></div><div class="trashActions"><button class="btn small primary" onclick="restoreTrash('${x.id}')">↩ Восстановить</button><button class="btn small danger" onclick="deleteTrashForever('${x.id}')">Удалить навсегда</button></div></div></div>`}).join('')}
-function updateTrashBadge(){let el=document.getElementById('trashCount');if(el)el.textContent=String((db.trash||[]).length+(typeof window.getCashTrashCount==='function'?window.getCashTrashCount():0))}function save(msg='● Данные сохранены'){purgeTrash();cloudMarkDirty(true);localStorage.setItem(KEY,JSON.stringify(db));document.getElementById('saveState').textContent=msg;updateTrashBadge();if(cloudReady||cloudConfigured())cloudSaveQueued();if(window.kadBackupAfterSave)window.kadBackupAfterSave(msg)}
+function updateTrashBadge(){let el=document.getElementById('trashCount');if(el)el.textContent=String((db.trash||[]).length+(typeof window.getCashTrashCount==='function'?window.getCashTrashCount():0))}function save(msg='● Данные сохранены'){purgeTrash();cloudMarkDirty(true);localStorage.setItem(KEY,JSON.stringify(db));document.getElementById('saveState').textContent=msg;updateTrashBadge();if((cloudReady||cloudConfigured())&&validAuthSession())cloudSaveQueued();if(window.kadBackupAfterSave)window.kadBackupAfterSave(msg)}
 function showPage(p){if(!authCanOpenPage(p)){showToast('У этого уровня доступа нет этой вкладки.');return}document.querySelectorAll('.page').forEach(x=>x.classList.remove('active'));document.getElementById(p).classList.add('active');document.querySelectorAll('.nav button').forEach(x=>x.classList.toggle('active',x.dataset.page===p));if(p==='dashboard'){document.getElementById('dashMonth').value=month()}if(p==='appointments'){if(document.getElementById('apptDate'))document.getElementById('apptDate').value=today();}if(p==='staff'){document.getElementById('staffMonth').value=month();renderPageMonthPicker('staff')}if(p==='consumables'){document.getElementById('consMonth').value=month();renderPageMonthPicker('cons')}let t={dashboard:['Главная','Учёт ремонта, автомойки и прибыли'],orders:['Заказы','Заказы, привязанные к клиентским записям'],appointments:['Записи','Расписание клиентов с 09:00 до 21:00 без выходных'],new:['Новый заказ','Создание и редактирование заказа по записи'],staff:['Сотрудники','Начисления за месяц'],consumables:['Расходники','Расходы, уменьшающие прибыль'],cash:['Касса','Самостоятельный бухгалтерский учёт наличных'],settings:['Справочник и расчёт','Схемы, сотрудники, источники и категории'],trash:['Корзина','Удалённые данные хранятся 30 дней']}[p];document.getElementById('pageTitle').textContent=t[0];document.getElementById('pageSub').textContent=t[1];if(p==='new'&&!editingId)resetForm();renderAll()}
 function targets(sel=''){return['Исполнитель','Менеджмент','Автосервис','Автомойка',...db.settings.people].filter((x,i,a)=>a.indexOf(x)===i).map(x=>`<option ${x===sel?'selected':''}>${esc(x)}</option>`).join('')}function persons(sel=''){return'<option value="">— Не выбран —</option>'+db.settings.people.map(x=>`<option ${x===sel?'selected':''}>${esc(x)}</option>`).join('')}const NO_CALC_SCHEME='__NO_CALC__';function neutralScheme(department='Автосервис'){return{base:'work',department:department==='Автомойка'?'Автомойка':'Автосервис',rules:[]}}function schemes(sel=''){let out='<option value="">— Авто по категории —</option><option value="'+NO_CALC_SCHEME+'" '+(sel===NO_CALC_SCHEME?'selected':'')+'>— Без расчёта —</option>';return out+(db.settings.schemeOrder||Object.keys(db.settings.schemes)).filter(x=>db.settings.schemes[x]).map(x=>`<option ${x===sel?'selected':''}>${esc(x)}</option>`).join('')}function categoryDepartment(c){return /автомой|мойк|мойка/i.test(String(c||''))?'Автомойка':'Автосервис'}function defScheme(c){return db.settings.schemes[c]||{base:'work',department:categoryDepartment(c),rules:[{target:categoryDepartment(c),percent:100,fixed:0}]}}function getS(o){if(o?.schemeName===NO_CALC_SCHEME)return neutralScheme(o.department);if(o?.schemeName&&db.settings.schemes[o.schemeName])return db.settings.schemes[o.schemeName];return o?.scheme||defScheme(o?.category)}function dep(o){return o.department==='Автомойка'?'Автомойка':(o.department==='Автосервис'?'Автосервис':getS(o).department==='Автомойка'?'Автомойка':categoryDepartment(o.category))}function recipient(t,o){if(t==='Исполнитель')return o.performer||'';if(t==='Менеджмент')return o.manager||'';if(t==='Сервис'||t==='Автосервис'||t==='Автомойка')return dep(o);return t}
 function resolveTarget(t,o){return recipient(t,o)}
@@ -975,6 +1092,7 @@ document.querySelectorAll('.tab').forEach(b=>b.onclick=()=>{document.querySelect
       const remoteHash=hashState(remote);
       if(remoteHash===cloudLastCloudHash){
         cloudLastUpdated=rowUpdatedAt;
+        cloudMainUpdatedAt=rowUpdatedAt;
         return;
       }
 
@@ -983,9 +1101,12 @@ document.querySelectorAll('.tab').forEach(b=>b.onclick=()=>{document.querySelect
         // Пустой cloud payload не должен стирать рабочую базу.
         cloudMarkDirty(true);
         try{
-          const savedAt=await cloudPutState(db);
+          cloudMainUpdatedAt=rowUpdatedAt;
+          const savedAt=await cloudPutState(db,{expectedUpdatedAt:rowUpdatedAt});
           cloudLastCloudHash=hashState(db);
           cloudLastUpdated=savedAt||rowUpdatedAt;
+          cloudMainUpdatedAt=cloudLastUpdated;
+          cloudBaseWrite(db,cloudMainUpdatedAt);
           cloudMarkDirty(false);
         }catch(e){
           cloudMarkDirty(true);
@@ -997,7 +1118,10 @@ document.querySelectorAll('.tab').forEach(b=>b.onclick=()=>{document.querySelect
         localStorage.setItem(KEY,JSON.stringify(db));
         cloudLastCloudHash=remoteHash;
         cloudLastUpdated=rowUpdatedAt;
+        cloudMainUpdatedAt=rowUpdatedAt;
+        cloudBaseWrite(db,cloudMainUpdatedAt);
         cloudMarkDirty(false);
+        cloudHideConflict();
         renderAll();
       }
       const st=document.getElementById('saveState');
@@ -1006,28 +1130,59 @@ document.querySelectorAll('.tab').forEach(b=>b.onclick=()=>{document.querySelect
   }
   let cloudLastCloudHash='';
   let cloudSaveRevision=0;
+  async function reconcileCloudConflict(){
+    const row=await cloudFetchRow();if(!row?.payload)throw new Error('Облачная база не получена');
+    const localNow=clone(db),baseInfo=cloudBaseRead(),baseState=baseInfo?.state||null;
+    if(!baseState){
+      cloudStoreConflict(localNow,row.payload,null,['unknown-base']);
+      cloudShowConflict(['unknown-base']);
+      return false;
+    }
+    const m=cloudThreeWayMerge(baseState,localNow,row.payload);
+    if(m.conflicts.length){
+      cloudStoreConflict(localNow,row.payload,baseState,m.conflicts);
+      cloudShowConflict(m.conflicts);
+      return false;
+    }
+    db=norm(m.merged);localStorage.setItem(KEY,JSON.stringify(db));
+    cloudMainUpdatedAt=row.updated_at||'';
+    const savedAt=await cloudPutState(db,{expectedUpdatedAt:cloudMainUpdatedAt});
+    cloudMainUpdatedAt=savedAt||cloudMainUpdatedAt;
+    cloudLastUpdated=cloudMainUpdatedAt;
+    cloudLastCloudHash=hashState(db);
+    cloudBaseWrite(db,cloudMainUpdatedAt);
+    cloudMarkDirty(false);
+    cloudHideConflict();renderAll();
+    return true;
+  }
   cloudSaveQueued=async function(){
-    if(!cloudConfigured()) return;
+    if(!cloudConfigured()||!validAuthSession()) return;
     const revision=++cloudSaveRevision;
     cloudDirty=true;
     cloudMarkDirty(true);
-    const snapshot=clone(db);
     cloudQueue=cloudQueue.then(async()=>{
-      // cloudPutState возвращает тот updated_at, который записан в строку.
-      // Повторно скачивать весь payload для "проверки" больше не нужно.
-      const savedAt=await cloudPutState(snapshot);
-      cloudLastCloudHash=hashState(snapshot);
-      cloudLastUpdated=savedAt||cloudLastUpdated;
-      if(revision===cloudSaveRevision){
-        cloudDirty=false;
-        cloudMarkDirty(false);
+      if(revision<cloudSaveRevision)return;
+      const snapshot=clone(db);
+      try{
+        const expected=cloudMainUpdatedAt||cloudBaseRead()?.updatedAt||'';
+        const savedAt=await cloudPutState(snapshot,{expectedUpdatedAt:expected});
+        cloudLastCloudHash=hashState(snapshot);
+        cloudLastUpdated=savedAt||expected;
+        cloudMainUpdatedAt=cloudLastUpdated;
+        cloudBaseWrite(snapshot,cloudMainUpdatedAt);
+        if(revision===cloudSaveRevision){cloudDirty=false;cloudMarkDirty(false)}
+        const st=$('saveState');if(st)st.textContent='● Синхронизировано с облаком';
+      }catch(e){
+        if(e?.code==='SYNC_CONFLICT'){
+          const merged=await reconcileCloudConflict().catch(err=>{console.error('conflict reconcile',err);return false});
+          cloudDirty=false;
+          if(merged){const st=$('saveState');if(st)st.textContent='● Параллельные изменения объединены';showToast('Изменения с двух компьютеров автоматически объединены.')}
+          else{cloudMarkDirty(true);const st=$('saveState');if(st)st.textContent='⚠ Конфликт синхронизации · облако не изменено';showToast('Есть конфликт одних и тех же данных. Облако не перезаписано.')}
+          return;
+        }
+        console.error(e);cloudDirty=false;cloudMarkDirty(true);
+        const st=$('saveState');if(st)st.textContent='⚠ Ошибка облачного сохранения';
       }
-      const st=$('saveState'); if(st) st.textContent='● Синхронизировано с облаком';
-    }).catch(e=>{
-      console.error(e);
-      cloudDirty=false;
-      cloudMarkDirty(true);
-      const st=$('saveState'); if(st)st.textContent='⚠ Ошибка облачного сохранения';
     });
     return cloudQueue;
   };
@@ -1641,9 +1796,9 @@ window.toggleAppointmentPaid=function(id){
  function persistCash(){localStorage.setItem(CASH_KEY,JSON.stringify(localPayload()))}
  function status(t,bad=false){const s=$('cashCloudStatus');if(s){s.textContent=t;s.style.color=bad?'#ff9b7a':'#77dc9e'}}
  async function readCloudLedgerRow(){if(typeof cloudFetchRow!=='function')throw new Error('Облачный клиент недоступен');const row=await cloudFetchRow();return {ledger:normalizeCloud(row?.payload||{}),updatedAt:row?.updated_at||''}}
- async function writeCloudLedger(ledger){if(typeof cloudFetchState!=='function'||typeof cloudPutState!=='function')throw new Error('Облачный клиент недоступен');const payload=await cloudFetchState()||{};const cur=normalizeCloud(payload);const merged={events:mergeEvents(cur.events,ledger.events),trashEvents:mergeEvents(cur.trashEvents,ledger.trashEvents)};payload[CASH_CLOUD_KEY]={version:3,events:merged.events,trashEvents:merged.trashEvents};const updatedAt=await cloudPutState(payload,{preserveCash:false});return {merged,updatedAt}}
+ async function writeCloudLedger(ledger,attempt=0){if(typeof cloudFetchRow!=='function'||typeof cloudPutState!=='function')throw new Error('Облачный клиент недоступен');const row=await cloudFetchRow(),payload=clone(row?.payload||{}),cur=normalizeCloud(payload),merged={events:mergeEvents(cur.events,ledger.events),trashEvents:mergeEvents(cur.trashEvents,ledger.trashEvents)};payload[CASH_CLOUD_KEY]={version:3,events:merged.events,trashEvents:merged.trashEvents};try{const updatedAt=await cloudPutState(payload,{preserveCash:false,expectedUpdatedAt:row?.updated_at||''});return {merged,updatedAt}}catch(e){if(e?.code==='SYNC_CONFLICT'&&attempt<2)return writeCloudLedger(ledger,attempt+1);throw e}}
  async function bootCloud(){if(typeof cloudConfigured!=='function'||!cloudConfigured()){status('● Касса: локальный режим');return}cashCloudBusy=true;try{const row=await readCloudLedgerRow();const remote=row.ledger;cashCloudUpdatedAt=row.updatedAt||'';cashEvents=mergeEvents(cashEvents,remote.events);cashTrashEvents=mergeEvents(cashTrashEvents,remote.trashEvents);persistCash();const mergedNow={events:cashEvents,trashEvents:cashTrashEvents};if(JSON.stringify(remote)!==JSON.stringify(mergedNow)){const saved=await writeCloudLedger(mergedNow);cashEvents=saved.merged.events;cashTrashEvents=saved.merged.trashEvents;cashCloudUpdatedAt=saved.updatedAt||cashCloudUpdatedAt;persistCash()}cashCloudHash=JSON.stringify(localPayload());cashCloudReady=true;status('● Касса синхронизирована с облаком');renderCash();renderCashTrashBridge()}catch(e){console.error('cash cloud boot',e);status('⚠ Ошибка синхронизации кассы',true)}finally{cashCloudBusy=false}}
- async function syncNow(){if(typeof cloudConfigured!=='function'||!cloudConfigured()||!cashCloudReady||cashCloudBusy)return;cashCloudBusy=true;try{const remoteUpdatedAt=await cloudFetchUpdatedAt();if(!remoteUpdatedAt||remoteUpdatedAt===cashCloudUpdatedAt){status('● Касса синхронизирована с облаком');return}const row=await readCloudLedgerRow();const remote=row.ledger;cashCloudUpdatedAt=row.updatedAt||remoteUpdatedAt;const localBefore={events:cashEvents,trashEvents:cashTrashEvents};const merged={events:mergeEvents(remote.events,cashEvents),trashEvents:mergeEvents(remote.trashEvents,cashTrashEvents)};const mergedHash=JSON.stringify(merged),remoteHash=JSON.stringify(remote),localHash=JSON.stringify(localBefore);if(mergedHash!==localHash){cashEvents=merged.events;cashTrashEvents=merged.trashEvents;persistCash();renderCash();renderCashTrashBridge()}if(mergedHash!==remoteHash){const saved=await writeCloudLedger(merged);cashEvents=saved.merged.events;cashTrashEvents=saved.merged.trashEvents;cashCloudUpdatedAt=saved.updatedAt||cashCloudUpdatedAt;persistCash()}cashCloudHash=JSON.stringify(localPayload());status('● Касса синхронизирована с облаком')}catch(e){console.error('cash cloud sync',e);status('⚠ Ошибка синхронизации кассы',true)}finally{cashCloudBusy=false}}
+ async function syncNow(){if(currentRole!=='admin'||typeof cloudConfigured!=='function'||!cloudConfigured()||!cashCloudReady||cashCloudBusy)return;cashCloudBusy=true;try{const remoteUpdatedAt=await cloudFetchUpdatedAt();if(!remoteUpdatedAt||remoteUpdatedAt===cashCloudUpdatedAt){status('● Касса синхронизирована с облаком');return}const row=await readCloudLedgerRow();const remote=row.ledger;cashCloudUpdatedAt=row.updatedAt||remoteUpdatedAt;const localBefore={events:cashEvents,trashEvents:cashTrashEvents};const merged={events:mergeEvents(remote.events,cashEvents),trashEvents:mergeEvents(remote.trashEvents,cashTrashEvents)};const mergedHash=JSON.stringify(merged),remoteHash=JSON.stringify(remote),localHash=JSON.stringify(localBefore);if(mergedHash!==localHash){cashEvents=merged.events;cashTrashEvents=merged.trashEvents;persistCash();renderCash();renderCashTrashBridge()}if(mergedHash!==remoteHash){const saved=await writeCloudLedger(merged);cashEvents=saved.merged.events;cashTrashEvents=saved.merged.trashEvents;cashCloudUpdatedAt=saved.updatedAt||cashCloudUpdatedAt;persistCash()}cashCloudHash=JSON.stringify(localPayload());status('● Касса синхронизирована с облаком')}catch(e){console.error('cash cloud sync',e);status('⚠ Ошибка синхронизации кассы',true)}finally{cashCloudBusy=false}}
  function queueSave(){if(typeof cloudConfigured!=='function'||!cloudConfigured())return;const localSnapshot={events:cashEvents.slice(),trashEvents:cashTrashEvents.slice()};cashCloudQueue=cashCloudQueue.then(async()=>{try{const saved=await writeCloudLedger(localSnapshot);cashEvents=mergeEvents(cashEvents,saved.merged.events);cashTrashEvents=mergeEvents(cashTrashEvents,saved.merged.trashEvents);cashCloudUpdatedAt=saved.updatedAt||cashCloudUpdatedAt;persistCash();cashCloudHash=JSON.stringify(localPayload());cashCloudReady=true;status('● Касса синхронизирована с облаком');renderCash();renderCashTrashBridge()}catch(e){console.error('cash queue',e);status('⚠ Ошибка синхронизации кассы',true)}})}
  function addEvent(action,item){cashEvents=mergeEvents(cashEvents,[{id:uid(),action,at:Date.now(),item:item||null}]);persistCash();renderCash();queueSave()}
  function addTrashEvent(action,item){cashTrashEvents=mergeEvents(cashTrashEvents,[{id:uid(),action,at:Date.now(),item:item||null}]);persistCash();renderCashTrashBridge();if(typeof window.updateTrashBadge==='function')window.updateTrashBadge();queueSave()}
@@ -1666,6 +1821,6 @@ window.toggleAppointmentPaid=function(id){
  window.getCashTrashCount=function(){return trashItems().length};
  function renderCashTrashBridge(){if(typeof window.updateTrashBadge==='function')window.updateTrashBadge();const box=$('trashBox');if(!box)return;let old=box.querySelector('.cash-trash-bridge');if(old)old.remove();const html=cashTrashMarkup();if(html)box.insertAdjacentHTML('beforeend',html)}
  window.renderCashTrashBridge=renderCashTrashBridge;
- loadCash();renderCash();if(typeof window.updateTrashBadge==='function')window.updateTrashBadge();const btn=document.querySelector('[data-page="cash"]');if(btn)btn.addEventListener('click',()=>{refreshAppts();renderCash();syncNow()});const trashBtn=document.querySelector('[data-page="trash"]');if(trashBtn)trashBtn.addEventListener('click',renderCashTrashBridge);setInterval(syncNow,2500);if(validAuthSession())bootCloud();else document.addEventListener('kad-auth-ready',bootCloud,{once:true});
+ loadCash();renderCash();if(typeof window.updateTrashBadge==='function')window.updateTrashBadge();const btn=document.querySelector('[data-page="cash"]');if(btn)btn.addEventListener('click',()=>{refreshAppts();renderCash();syncNow()});const trashBtn=document.querySelector('[data-page="trash"]');if(trashBtn)trashBtn.addEventListener('click',renderCashTrashBridge);setInterval(syncNow,2500);if(validAuthSession()&&currentRole==='admin')bootCloud();else document.addEventListener('kad-auth-ready',()=>{if(currentRole==='admin')bootCloud()},{once:true});
 })();
 </script></body></html>
