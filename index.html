@@ -435,8 +435,7 @@ body:has(.settlement-dialog.open) .system-float{z-index:80!important}
       <select id="authRole" onchange="authRoleChanged()">
         <option value="admin">Администрация</option>
         <option value="staff">Персонал</option>
-        <option value="viewer">Просмотр</option>
-      </select>
+              </select>
     </div>
     <div id="authCredentials">
       <div class="auth-field"><label for="authLogin">Логин</label><input id="authLogin" autocomplete="username" placeholder="Введите логин"></div>
@@ -495,11 +494,10 @@ body:has(.settlement-dialog.open) .system-float{z-index:80!important}
 const AUTH_KEY='kadbox778_auth_v1';
 const AUTH_TTL=24*60*60*1000;
 let currentRole='admin';
-const ROLE_NAMES={admin:'Администрация',staff:'Персонал',viewer:'Просмотр'};
+const ROLE_NAMES={admin:'Администрация',staff:'Персонал'};
 const ROLE_PERMS={
   admin:{create:true,edit:true,editAppointment:true,delete:true,settings:true,staff:true,trash:true,importExport:true,payment:true},
   staff:{create:true,editConsumable:true,print:true},
-  viewer:{print:true}
 };
 function hasPerm(name){return !!(ROLE_PERMS[currentRole]&&ROLE_PERMS[currentRole][name]);}
 function authSessionRead(){try{return JSON.parse(localStorage.getItem(AUTH_KEY)||'null')}catch(e){return null}}
@@ -517,12 +515,12 @@ async function crmApiCall(action,extra={},options={}){
   return data;
 }
 function toggleAuthPassword(){const input=document.getElementById('authPassword'),btn=document.getElementById('authPasswordToggle'),icon=document.getElementById('authEyeIcon');if(!input)return;const visible=input.type==='text';input.type=visible?'password':'text';if(btn){btn.setAttribute('aria-label',visible?'Показать пароль':'Скрыть пароль');btn.title=visible?'Показать пароль':'Скрыть пароль'}if(icon){icon.innerHTML=visible?'<path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7S2 12 2 12Z"></path><circle cx="12" cy="12" r="3"></circle>':'<path d="M3 3l18 18"></path><path d="M10.58 10.58a2 2 0 0 0 2.83 2.83"></path><path d="M9.88 4.24A10.9 10.9 0 0 1 12 4c6.5 0 10 8 10 8a18.5 18.5 0 0 1-3.04 4.2"></path><path d="M6.61 6.61C3.92 8.48 2 12 2 12a18.5 18.5 0 0 0 5.15 5.1A10.7 10.7 0 0 0 12 20c1.15 0 2.25-.18 3.28-.5"></path>'}}
-function authRoleChanged(){const role=document.getElementById('authRole').value;const creds=document.getElementById('authCredentials');const hint=document.getElementById('authHint');const submit=document.getElementById('authSubmit');document.getElementById('authError').classList.remove('show');creds.style.display='block';hint.textContent=role==='admin'?'Администрация: полный доступ ко всем функциям.':role==='staff'?'Персонал: рабочий доступ; настройки, удаления и расчёты администрации недоступны.':'Просмотр: только чтение данных. Для входа теперь тоже требуется учётная запись.';submit.textContent='Войти';}
+function authRoleChanged(){const role=document.getElementById('authRole').value;const creds=document.getElementById('authCredentials');const hint=document.getElementById('authHint');const submit=document.getElementById('authSubmit');document.getElementById('authError').classList.remove('show');creds.style.display='block';hint.textContent=role==='admin'?'Администрация: полный доступ ко всем функциям.':'Персонал: рабочий доступ; настройки, удаления и расчёты администрации недоступны.';submit.textContent='Войти';}
 async function attemptLogin(){const role=document.getElementById('authRole').value,login=document.getElementById('authLogin').value,pass=document.getElementById('authPassword').value;const errBox=document.getElementById('authError'),btn=document.getElementById('authSubmit');errBox.classList.remove('show');btn.disabled=true;btn.textContent='Проверяю…';try{const data=await crmApiCall('login',{role,login,password:pass},{noAuth:true});saveAuthSession(data.role||role,data.token,data.expiresAt);document.getElementById('authPassword').value='';finishAuth()}catch(e){errBox.textContent=e.message==='Account not configured'?'Безопасная авторизация ещё не настроена для этой роли.':(e.message||'Не удалось войти.');errBox.classList.add('show')}finally{btn.disabled=false;btn.textContent='Войти'}}
 function finishAuth(){document.getElementById('authGate').classList.add('hidden');const b=document.getElementById('authRoleBadge');b.textContent=ROLE_NAMES[currentRole];b.className='badge auth-role-badge '+(currentRole==='admin'?'green':'');b.classList.toggle('scrolled-away',window.scrollY>8);applyRoleUI();renderAll();if(typeof bootCloud==='function')bootCloud();document.dispatchEvent(new CustomEvent('kad-auth-ready'));}window.addEventListener('scroll',()=>{const b=document.getElementById('authRoleBadge');if(!b)return;b.classList.toggle('scrolled-away',window.scrollY>8)});
 function applyRoleUI(){const adminOnly=document.querySelectorAll('[data-admin-only="1"]');adminOnly.forEach(el=>el.classList.toggle('role-hidden',currentRole!=='admin'));document.querySelectorAll('[data-staff-create="1"]').forEach(el=>el.classList.toggle('role-hidden',currentRole==='viewer'));const staffPage=document.querySelector('[data-page="staff"]'),settingsPage=document.querySelector('[data-page="settings"]'),trashPage=document.querySelector('[data-page="trash"]');[staffPage,settingsPage,trashPage].forEach(el=>{if(el)el.classList.toggle('role-hidden',currentRole!=='admin')});const logout=document.getElementById('authLogout');if(logout)logout.style.display='block';const active=document.querySelector('.page.active');if(currentRole!=='admin'&&active&&(active.id==='staff'||active.id==='settings'||active.id==='trash'))showPage('dashboard');}
 function logout(){clearAuthSession();location.reload()}
-function authCanOpenPage(p){if(currentRole==='admin')return true;if(p==='staff'||p==='settings'||p==='trash'||p==='cash')return false;if(currentRole==='viewer'&&p==='new')return false;return true}
+function authCanOpenPage(p){if(currentRole==='admin')return true;if(p==='staff'||p==='settings'||p==='trash'||p==='cash')return false;return true}
 
 
 /* ===== Облачное хранение Supabase =====
