@@ -44,6 +44,46 @@ try{
   const result = await page.evaluate(()=>window.__KAD_RUN_FINANCE_TESTS());
   console.log(JSON.stringify(result,null,2));
 
+  const backupUi = await page.evaluate(async()=>{
+    let anchorClicks=0;
+    const originalAnchorClick=HTMLAnchorElement.prototype.click;
+    HTMLAnchorElement.prototype.click=function(){anchorClicks++};
+    const originalApi=window.crmApiCall;
+    window.crmApiCall=async(action,extra={})=>{
+      if(action==='backup-history') return {files:[{
+        path:'2026/09/20/KAD_Boks778_FULL_2026-09-20_12-00-00.json',
+        created_at:'2026-09-20T12:00:00Z',
+        metadata:{size:2048}
+      }]};
+      if(action==='backup-sign') return {signedUrl:'https://example.invalid/test-backup.json?download=1'};
+      if(action==='backup-preview') return {summary:{
+        path:extra.path,createdAt:'2026-09-20T12:00:00Z',appVersion:'v106',
+        orders:1,appointments:1,consumables:0,hasCashLedger:true,checksum:'abc123'
+      }};
+      return originalApi(action,extra);
+    };
+    const history=document.getElementById('backupHistory');
+    history.style.display='none';
+    await window.kadShowBackupHistory();
+    const download=history.querySelector('[data-backup-download]');
+    const restore=history.querySelector('[data-backup-restore]');
+    if(!download||!restore) return {ok:false,reason:'backup action buttons were not rendered'};
+    download.click();
+    await new Promise(r=>setTimeout(r,0));
+    restore.click();
+    await new Promise(r=>setTimeout(r,0));
+    const dialog=!!document.getElementById('backupRestoreDialog');
+    window.kadCloseBackupRestore?.();
+    window.crmApiCall=originalApi;
+    HTMLAnchorElement.prototype.click=originalAnchorClick;
+    return {ok:anchorClicks===1&&dialog,anchorClicks,dialog};
+  });
+  console.log('Backup history action test:',JSON.stringify(backupUi));
+  if(!backupUi?.ok){
+    console.error('Backup history action test failed.');
+    process.exitCode=1;
+  }
+
   if(pageErrors.length){
     console.error('Browser page errors:',pageErrors);
     process.exitCode=1;
