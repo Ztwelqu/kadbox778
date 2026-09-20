@@ -674,30 +674,18 @@ body:has(.settlement-dialog.open) .system-float{z-index:80!important}
 .appt-status-chip-count{display:inline-flex;align-items:center;justify-content:center;min-width:20px;height:20px;padding:0 6px;border-radius:999px;background:#1c2329;color:#d6dce1;font-size:10px;font-variant-numeric:tabular-nums}
 .appt-status-chip.active .appt-status-chip-count{background:rgba(255,255,255,.08)}
 @media(max-width:760px){.appointments-status-filters{display:grid;grid-template-columns:repeat(2,minmax(0,1fr))}.appt-status-chip{justify-content:space-between;width:100%}}
-</style><style id="v154-appointments-cards">
-.appointments-day-list{display:grid;gap:8px}
-.appt-slot{display:grid;grid-template-columns:74px minmax(0,1fr) auto;gap:12px;align-items:center;padding:11px 12px;border:1px solid #2a3239;border-radius:12px;background:#11161a;transition:border-color .15s,background .15s}
-.appt-slot:hover{border-color:#3b4650;background:#13191e}
-.appt-slot-time{font-size:19px;font-weight:900;font-variant-numeric:tabular-nums;color:#e7ecef;text-align:center}
-.appt-slot-main{min-width:0}
-.appt-slot-head{display:flex;align-items:flex-start;justify-content:space-between;gap:12px}
-.appt-slot-title{font-size:14px;font-weight:900;color:#f1f4f6;line-height:1.2}
-.appt-slot-car{margin-top:3px;color:#a9b2ba;font-size:12px;font-weight:700}
-.appt-slot-sub{margin-top:2px;color:#69737d;font-size:11px}
-.appt-slot-meta{display:flex;gap:8px 18px;flex-wrap:wrap;margin-top:8px;color:#b4bcc3;font-size:11px}
-.appt-slot-meta span{display:flex;gap:5px;align-items:baseline}
-.appt-slot-meta b{color:#6f7a84;font-size:9px;text-transform:uppercase;letter-spacing:.05em}
-.appt-slot-actions{display:flex;align-items:center;justify-content:flex-end;gap:6px;flex-wrap:wrap;max-width:360px}
-.appt-slot-state{display:flex;align-items:center;justify-content:flex-end;gap:6px;flex-wrap:wrap}
-.appt-pay-method{color:#7e8993;font-size:10px}
-.appt-slot.free{min-height:54px;background:#0f1418;border-style:dashed}
-.appt-slot.free .appt-slot-time{color:#7b858e}
-.appt-slot.free .appt-slot-title{color:#89939c;font-size:12px}
-.appt-slot.booked{border-left:3px solid #b96a2a}
-.appt-slot.ordered{border-left:3px solid #a58c32}
-.appt-slot.paid{border-left:3px solid #3f9c68}
-@media(max-width:980px){.appt-slot{grid-template-columns:64px minmax(0,1fr)}.appt-slot-actions{grid-column:2;justify-content:flex-start;max-width:none}}
-@media(max-width:640px){.appt-slot{grid-template-columns:1fr;padding:11px}.appt-slot-time{text-align:left;font-size:16px}.appt-slot-actions{grid-column:1;justify-content:flex-start}.appt-slot-head{display:block}.appt-slot-state{justify-content:flex-start;margin-top:7px}.appt-slot-meta{display:grid;grid-template-columns:1fr;gap:4px}}
+</style><style id="v154-audit-cards">
+#auditTable.tablewrap{border:0;background:transparent;overflow:visible}
+.audit-event-list{display:grid;gap:8px}
+.audit-event-card{padding:12px 13px;border:1px solid #2b343c;border-radius:12px;background:#11161a;transition:border-color .15s,background .15s}
+.audit-event-card:hover{border-color:#3b4650;background:#13191e}
+.audit-event-top{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:8px}
+.audit-event-when{font-size:11px;font-weight:800;color:#8d98a2;font-variant-numeric:tabular-nums;white-space:nowrap}
+.audit-event-tags{display:flex;align-items:center;justify-content:flex-end;gap:6px;flex-wrap:wrap}
+.audit-event-title{font-size:13px;font-weight:900;color:#eef2f4;line-height:1.35}
+.audit-event-detail{margin-top:5px;color:#adb6be;font-size:11px;line-height:1.45;white-space:pre-wrap;word-break:break-word}
+.audit-event-entity{margin-top:7px;color:#68737d;font-size:9px;text-transform:uppercase;letter-spacing:.055em}
+@media(max-width:620px){.audit-event-top{align-items:flex-start;flex-direction:column}.audit-event-tags{justify-content:flex-start}.audit-event-when{white-space:normal}}
 </style><style id="v125-staff-summary">
 .staff-summary-grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:9px;margin:4px 0 12px}
 .staff-summary-card{padding:12px 13px;border:1px solid #2c343c;border-radius:11px;background:#11161a}
@@ -1742,10 +1730,11 @@ function filterAuditLog(){
   });
   stats.textContent='Показано '+rows.length+' из '+auditEventsCache.length+' событий'+(auditEventsLoadedAt?' · обновлено '+new Date(auditEventsLoadedAt).toLocaleTimeString('ru-RU',{hour:'2-digit',minute:'2-digit'}):'');
   if(!rows.length){box.innerHTML='<div class="audit-empty">По выбранным фильтрам событий нет.</div>';return}
-  box.innerHTML='<table class="table"><thead><tr><th>Дата и время</th><th>Кто</th><th>Действие</th><th>Что произошло</th></tr></thead><tbody>'+rows.map(x=>{
-    const detail=x.detail?'<div class="audit-detail">'+esc(x.detail)+'</div>':'';
-    return '<tr><td class="audit-time">'+esc(auditDateTime(x.created_at))+'</td><td><span class="audit-actor '+esc(x.actor_role||'')+'">'+esc(auditActorLabel(x.actor_role))+'</span></td><td><span class="audit-action">'+esc(auditActionLabel(x.action))+'</span></td><td><div class="audit-title">'+esc(x.title||'Событие')+'</div>'+detail+'</td></tr>';
-  }).join('')+'</tbody></table>';
+  box.innerHTML='<div class="audit-event-list">'+rows.map(x=>{
+    const detail=x.detail?'<div class="audit-event-detail">'+esc(x.detail)+'</div>':'';
+    const entity=(x.entity_type||x.entity_id)?'<div class="audit-event-entity">'+esc([x.entity_type,x.entity_id].filter(Boolean).join(' · '))+'</div>':'';
+    return '<article class="audit-event-card"><div class="audit-event-top"><div class="audit-event-when">'+esc(auditDateTime(x.created_at))+'</div><div class="audit-event-tags"><span class="audit-actor '+esc(x.actor_role||'')+'">'+esc(auditActorLabel(x.actor_role))+'</span><span class="audit-action">'+esc(auditActionLabel(x.action))+'</span></div></div><div class="audit-event-title">'+esc(x.title||'Событие')+'</div>'+detail+entity+'</article>';
+  }).join('')+'</div>';
 }
 window.renderAuditLog=renderAuditLog;window.filterAuditLog=filterAuditLog;
 const SYSTEM_ERROR_KEY='KAD_BOKS778_LAST_ERROR_V1';
@@ -2047,54 +2036,7 @@ function openAppointmentFromOrder(id){
   openAppointmentModal(a,a.date,a.time);
 }
 function renderOrders(){let q=(document.getElementById('orderSearch')?.value||'').toLowerCase();document.getElementById('ordersTable').innerHTML=ordersTable(db.orders.filter(o=>{let a=orderAppointment(o);return[a?.date,a?.time,a?.car,a?.client,a?.vin,a?.phone,a?.source,...(o.ops||[]).flatMap(x=>[x.desc,x.partNumber,x.partLink])].join(' ').toLowerCase().includes(q)}).sort((a,b)=>{let aa=orderAppointment(a),bb=orderAppointment(b);return String((bb?.date||b.date)+' '+(bb?.time||'')).localeCompare(String((aa?.date||a.date)+' '+(aa?.time||'')))}))}
-function timeSlots(){let a=[];for(let m=9*60;m<=20*60+30;m+=30)a.push(String(Math.floor(m/60)).padStart(2,'0')+':'+String(m%60).padStart(2,'0'));return a}function setApptToday(){if(document.getElementById('apptDate'))document.getElementById('apptDate').value=today();if(window.selectApptMonth)window.selectApptMonth(todayMonth());else renderAppointments()}function shiftApptDate(n){let e=document.getElementById('apptDate');if(!e){let v=document.getElementById('apptMonth')?.value||todayMonth(),d=new Date(v+'-01T12:00:00');d.setMonth(d.getMonth()+n);let m=localDate(d).slice(0,7);if(window.selectApptMonth)window.selectApptMonth(m);return}let d=new Date((e.value||today())+'T12:00:00');d.setDate(d.getDate()+n);e.value=localDate(d);renderAppointments()}function renderAppointments(){
-  let date=document.getElementById('apptDate').value||today(),
-      list=db.appointments.filter(a=>a.date===date).sort((a,b)=>a.time.localeCompare(b.time)),
-      map=Object.fromEntries(list.map(a=>[a.time,a])),
-      box=document.getElementById('appointmentsTable');
-  if(!box)return;
-  box.className='appointments-day-list';
-  box.innerHTML=timeSlots().map(t=>{
-    let a=map[t];
-    if(!a){
-      return `<div class="appt-slot free">
-        <div class="appt-slot-time">${t}</div>
-        <div class="appt-slot-main">
-          <div class="appt-slot-title">Свободно</div>
-          <div class="appt-slot-sub">Можно записать клиента на это время</div>
-        </div>
-        <div class="appt-slot-actions">${hasPerm('create')?`<button class="btn small" onclick="addAppointment('${t}')">＋ Записать</button>`:''}</div>
-      </div>`;
-    }
-    let hasOrder=db.orders.some(o=>o.appointmentId===a.id);
-    let stateClass=a.paymentReceived?'paid':(hasOrder?'ordered':'booked');
-    let stateLabel=a.paymentReceived?'Расчёт произведён':(hasOrder?'Заказ создан':'Записан');
-    let method=a.paymentReceived&&a.paymentMethod?`<span class="appt-pay-method">${esc(a.paymentMethod)}</span>`:'';
-    return `<div class="appt-slot occupied ${stateClass}">
-      <div class="appt-slot-time">${t}</div>
-      <div class="appt-slot-main">
-        <div class="appt-slot-head">
-          <div>
-            <div class="appt-slot-title">${esc(a.client||'Без имени')}</div>
-            <div class="appt-slot-car">${esc(a.car||'Автомобиль не указан')}</div>
-          </div>
-          <div class="appt-slot-state"><span class="badge ${a.paymentReceived?'green':''}">${stateLabel}</span>${method}</div>
-        </div>
-        <div class="appt-slot-meta">
-          <span><b>Телефон</b>${esc(a.phone||'—')}</span>
-          <span><b>VIN</b>${esc(a.vin||'—')}</span>
-          <span><b>Источник</b>${esc(a.source||'—')}</span>
-        </div>
-      </div>
-      <div class="appt-slot-actions">
-        ${hasPerm('payment')?`<button class="btn small ${a.paymentReceived?'':'primary'}" onclick="toggleAppointmentPaid('${a.id}')">${a.paymentReceived?'↩ Отменить расчёт':'✓ Расчёт произведён'}</button>`:''}
-        ${hasPerm('editAppointment')?`<button class="btn small" onclick="editAppointment('${a.id}')">Редактировать</button>`:''}
-        ${hasPerm('delete')?`<button class="btn small danger" onclick="deleteAppointment('${a.id}')">Удалить</button>`:''}
-      </div>
-    </div>`;
-  }).join('');
-}
-let customerPaymentPending=null;function closeCustomerPaymentDialog(){
+function timeSlots(){let a=[];for(let m=9*60;m<=20*60+30;m+=30)a.push(String(Math.floor(m/60)).padStart(2,'0')+':'+String(m%60).padStart(2,'0'));return a}function setApptToday(){if(document.getElementById('apptDate'))document.getElementById('apptDate').value=today();if(window.selectApptMonth)window.selectApptMonth(todayMonth());else renderAppointments()}function shiftApptDate(n){let e=document.getElementById('apptDate');if(!e){let v=document.getElementById('apptMonth')?.value||todayMonth(),d=new Date(v+'-01T12:00:00');d.setMonth(d.getMonth()+n);let m=localDate(d).slice(0,7);if(window.selectApptMonth)window.selectApptMonth(m);return}let d=new Date((e.value||today())+'T12:00:00');d.setDate(d.getDate()+n);e.value=localDate(d);renderAppointments()}function renderAppointments(){let date=document.getElementById('apptDate').value||today(),list=db.appointments.filter(a=>a.date===date).sort((a,b)=>a.time.localeCompare(b.time)),map=Object.fromEntries(list.map(a=>[a.time,a]));document.getElementById('appointmentsTable').innerHTML=`<table class="table"><thead><tr><th style="width:90px">Время</th><th>Клиент</th><th>Автомобиль</th><th>VIN</th><th>Телефон</th><th>Источник</th><th>Статус</th><th></th></tr></thead><tbody>${timeSlots().map(t=>{let a=map[t];if(!a)return`<tr><td><b>${t}</b></td><td colspan="6"><span class="hint">Свободно</span></td><td>${hasPerm('create')?`<button class="btn small" onclick="addAppointment('${t}')">＋ Записать</button>`:''}</td></tr>`;let hasOrder=db.orders.some(o=>o.appointmentId===a.id);let status=a.paymentReceived?'<span class="badge green">Расчёт произведён</span>'+(a.paymentMethod?`<span class="hint" style="margin-left:6px">${esc(a.paymentMethod)}</span>`:''):(hasOrder?'<span class="badge green">Заказ создан</span>':'<span class="badge">Записан</span>');return`<tr><td><b>${t}</b></td><td><b>${esc(a.client||'—')}</b></td><td>${esc(a.car||'—')}</td><td>${esc(a.vin||'—')}</td><td>${esc(a.phone||'—')}</td><td>${esc(a.source||'—')}</td><td>${status}</td><td>${hasPerm('payment')?`<button class="btn small ${a.paymentReceived?'':'primary'}" onclick="toggleAppointmentPaid('${a.id}')">${a.paymentReceived?'↩ Отменить расчёт':'✓ Расчёт произведён'}</button>`:''} ${hasPerm('editAppointment')?`<button class="btn small" onclick="editAppointment('${a.id}')">Редактировать</button>`:''} ${hasPerm('delete')?`<button class="btn small danger" onclick="deleteAppointment('${a.id}')">Удалить</button>`:''}</td></tr>`}).join('')}</tbody></table>`}let customerPaymentPending=null;function closeCustomerPaymentDialog(){
   const x=document.getElementById('customerPaymentDialog');
   if(x)x.remove();
   customerPaymentPending=null;
