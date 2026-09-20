@@ -3377,9 +3377,15 @@ window.toggleAppointmentPaid=function(id){
       a.paymentReceived=false;a.paymentMethod='';save('✓ Отметка о расчёте отменена');showToast('Отметка отменена.');renderAppointments();renderAll();return;
     }
     if(!oForPaymentExists(id)){showToast('Сначала создай заказ по этой записи, после получения денег отметь расчёт.');return}
-    const method=prompt('Как клиент расплатился?\nНапример: карта, наличные, расчётный счёт. Можно написать свой вариант:','');
-    if(method===null)return;const m=method.trim();if(!m){alert('Укажи способ оплаты.');return}
-    a.paymentMethod=m;a.paymentReceived=true;save('✓ Расчёт по записи подтверждён');showToast('Расчёт произведён. Способ оплаты: '+m+'.');renderAppointments();renderAll();
+    openCustomerPaymentDialog(id,(method,appointment)=>{
+      appointment.paymentMethod=method;
+      appointment.paymentReceived=true;
+      save('✓ Расчёт по записи подтверждён');
+      showToast('Расчёт произведён. Способ оплаты: '+method+'.');
+      closeModal();
+      renderAppointments();
+      renderAll();
+    });
   };
   function oForPaymentExists(id){return (db.orders||[]).some(o=>o&&o.appointmentId===id)}
   // Keep lexical callers on the new appointment payment handler as well.
