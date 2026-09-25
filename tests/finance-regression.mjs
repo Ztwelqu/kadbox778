@@ -139,6 +139,52 @@ try{
     process.exitCode=1;
   }
 
+  const orderDraftReloadSetup = await page.evaluate(()=>{
+    const storageKey='KAD_BOKS778_ORDER_DRAFTS_V1';
+    const mainKey='kadbox778_v11';
+    const testId='draft-reload-test';
+    window.db.appointments=window.db.appointments.filter(a=>a.id!==testId);
+    window.db.orders=window.db.orders.filter(o=>o.appointmentId!==testId);
+    window.db.appointments.push({
+      id:testId,date:'2026-09-25',time:'13:00',client:'Черновик Reload',car:'Reload Test',vin:'',mileage:'',year:'',phone:'',source:'',note:'',paymentReceived:false,paymentMethod:''
+    });
+    localStorage.setItem(mainKey,JSON.stringify(window.db));
+    const store={version:1,drafts:{}};
+    store.drafts[testId]={
+      appointmentId:testId,
+      updatedAt:new Date().toISOString(),
+      ops:[{type:'Работа',category:'Слесарка',department:'Автосервис',desc:'Пережил F5',supplier:'',purchase:'',client:'',work:'9876',performer:'',manager:'',partLink:'',partNumber:'',schemeName:''}]
+    };
+    localStorage.setItem(storageKey,JSON.stringify(store));
+    return {testId};
+  });
+  await page.reload({waitUntil:'load'});
+  await page.waitForFunction(()=>typeof window.orderDraftRestore==='function'&&!!window.db, null, {timeout:10000});
+  const orderDraftReload = await page.evaluate(({testId})=>{
+    try{
+      resetForm();
+      const select=document.getElementById('fAppointment');
+      select.value=testId;
+      appointmentSelected();
+      const row=document.querySelector('#new .oprow');
+      const restoredDesc=row?.querySelector('.desc')?.value||'';
+      const restoredWork=row?.querySelector('.workv')?.value||'';
+      const status=document.getElementById('orderDraftStatus')?.textContent||'';
+      return {ok:restoredDesc==='Пережил F5'&&Number(restoredWork)===9876&&/восстановлен/i.test(status),restoredDesc,restoredWork,status};
+    }catch(e){return {ok:false,reason:String(e?.stack||e)}}
+  },orderDraftReloadSetup);
+  console.log('Order draft reload restore test:',JSON.stringify(orderDraftReload));
+  if(!orderDraftReload?.ok){
+    console.error('Order draft reload restore test failed.');
+    process.exitCode=1;
+  }
+  await page.evaluate(()=>{
+    window.db.appointments=window.db.appointments.filter(a=>a.id!=='draft-reload-test');
+    window.db.orders=window.db.orders.filter(o=>o.appointmentId!=='draft-reload-test');
+    localStorage.removeItem('KAD_BOKS778_ORDER_DRAFTS_V1');
+    localStorage.setItem('kadbox778_v11',JSON.stringify(window.db));
+  });
+
   if(pageErrors.length){
     console.error('Browser page errors:',pageErrors);
     process.exitCode=1;
