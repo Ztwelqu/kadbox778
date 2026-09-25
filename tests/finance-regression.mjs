@@ -185,6 +185,56 @@ try{
     localStorage.setItem('kadbox778_v11',JSON.stringify(window.db));
   });
 
+  const orderDraftAutoResume = await page.evaluate(()=>{
+    const storageKey='KAD_BOKS778_ORDER_DRAFTS_V1';
+    const before=localStorage.getItem(storageKey);
+    const firstId='draft-auto-a';
+    const secondId='draft-auto-b';
+    try{
+      window.db.appointments=window.db.appointments.filter(a=>![firstId,secondId].includes(a.id));
+      window.db.orders=window.db.orders.filter(o=>![firstId,secondId].includes(o.appointmentId));
+      window.db.appointments.push(
+        {id:firstId,date:'2026-09-25',time:'14:00',client:'Черновик A',car:'Auto Resume A',vin:'',mileage:'',year:'',phone:'',source:'',note:'',paymentReceived:false,paymentMethod:''},
+        {id:secondId,date:'2026-09-25',time:'15:00',client:'Черновик B',car:'Auto Resume B',vin:'',mileage:'',year:'',phone:'',source:'',note:'',paymentReceived:false,paymentMethod:''}
+      );
+      const store={version:1,drafts:{}};
+      store.drafts[firstId]={
+        appointmentId:firstId,
+        updatedAt:new Date().toISOString(),
+        ops:[{type:'Работа',category:'Слесарка',department:'Автосервис',desc:'Автовосстановление',supplier:'',purchase:'',client:'',work:'2468',performer:'',manager:'',partLink:'',partNumber:'',schemeName:''}]
+      };
+      localStorage.setItem(storageKey,JSON.stringify(store));
+
+      startNewOrder();
+      const selected=document.getElementById('fAppointment')?.value||'';
+      const row=document.querySelector('#new .oprow');
+      const restoredDesc=row?.querySelector('.desc')?.value||'';
+      const restoredWork=row?.querySelector('.workv')?.value||'';
+      const autoOk=selected===firstId&&restoredDesc==='Автовосстановление'&&Number(restoredWork)===2468;
+
+      const select=document.getElementById('fAppointment');
+      select.value=secondId;
+      appointmentSelected();
+      const switched=document.querySelector('#new .oprow');
+      const switchedDesc=switched?.querySelector('.desc')?.value||'';
+      const switchedWork=switched?.querySelector('.workv')?.value||'';
+      const switchOk=switchedDesc===''&&Number(switchedWork||0)===0;
+
+      return {ok:autoOk&&switchOk,selected,restoredDesc,restoredWork,switchedDesc,switchedWork};
+    }catch(e){
+      return {ok:false,reason:String(e?.stack||e)};
+    }finally{
+      window.db.appointments=window.db.appointments.filter(a=>![firstId,secondId].includes(a.id));
+      window.db.orders=window.db.orders.filter(o=>![firstId,secondId].includes(o.appointmentId));
+      if(before===null)localStorage.removeItem(storageKey);else localStorage.setItem(storageKey,before);
+    }
+  });
+  console.log('Order draft auto-resume/context-switch test:',JSON.stringify(orderDraftAutoResume));
+  if(!orderDraftAutoResume?.ok){
+    console.error('Order draft auto-resume/context-switch test failed.');
+    process.exitCode=1;
+  }
+
   if(pageErrors.length){
     console.error('Browser page errors:',pageErrors);
     process.exitCode=1;
