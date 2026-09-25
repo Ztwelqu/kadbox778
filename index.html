@@ -3409,11 +3409,7 @@ function updateOpTint(id){let e=document.getElementById(id);if(!e)return;let p=e
   resetForm();
   showPage('new');
   const latest=orderDraftLatest();
-  if(latest?.appointmentId){
-    renderAppointmentOptions(latest.appointmentId);
-    const select=document.getElementById('fAppointment');
-    if(select){select.value=latest.appointmentId;appointmentSelected()}
-  }
+  if(latest?.appointmentId)renderAppointmentOptions(latest.appointmentId);
   updateEditOpMoveButtons();
 }
 function readOps(){return[...document.querySelectorAll('.oprow')].map(e=>{let c=e.querySelector('.cat').value,s=e.querySelector('.scheme').value,dept=e.querySelector('.department').value;let z=s===NO_CALC_SCHEME?neutralScheme(dept):(s?JSON.parse(JSON.stringify(db.settings.schemes[s])):JSON.parse(JSON.stringify(defScheme(c))));return{type:e.querySelector('.type').value,category:c,department:dept,desc:e.querySelector('.desc').value,supplier:e.querySelector('.supplier')?.value||'',purchase:num(e.querySelector('.purchase').value),client:num(e.querySelector('.client').value),work:num(e.querySelector('.workv').value),performer:e.querySelector('.performer').value,manager:e.querySelector('.manager').value,partLink:e.querySelector('.partLink').value.trim(),partNumber:e.querySelector('.partNumber').value.trim(),schemeName:s||'',scheme:z}})}function calcNew(){let ops=readOps(),c=calcOrder({ops});document.getElementById('newWorks').textContent=money(c.works);document.getElementById('newParts').textContent=money(c.parts);document.getElementById('newMargin').textContent=money(c.margin);document.getElementById('newTotal').textContent=money(c.total);let count=document.getElementById('orderOpCount'),n=ops.length;if(count)count.textContent=n+' '+(n===1?'позиция':(n>=2&&n<=4?'позиции':'позиций'));updateEditOpMoveButtons();renderOrderEditorStatus();scheduleOrderDraftSave()}function saveOrder(){
