@@ -84,6 +84,61 @@ try{
     process.exitCode=1;
   }
 
+  const orderDraftUi = await page.evaluate(async()=>{
+    const storageKey='KAD_BOKS778_ORDER_DRAFTS_V1';
+    const before=localStorage.getItem(storageKey);
+    const testId='draft-ui-'+Date.now();
+    try{
+      window.db.appointments.push({
+        id:testId,date:'2026-09-25',time:'12:00',client:'Черновик UI',car:'Draft Test',vin:'',mileage:'',year:'',phone:'',source:'',note:'',paymentReceived:false,paymentMethod:''
+      });
+      window.db.orders=window.db.orders.filter(o=>o.appointmentId!==testId);
+
+      resetForm();
+      const select=document.getElementById('fAppointment');
+      select.value=testId;
+      appointmentSelected();
+
+      const row=document.querySelector('#new .oprow');
+      if(!row)return {ok:false,reason:'no operation row'};
+      const desc=row.querySelector('.desc');
+      const work=row.querySelector('.workv');
+      desc.value='Замена тестового узла';
+      work.value='4321';
+      desc.dispatchEvent(new Event('input',{bubbles:true}));
+      work.dispatchEvent(new Event('input',{bubbles:true}));
+      orderDraftSaveNow();
+
+      const stored=JSON.parse(localStorage.getItem(storageKey)||'{}')?.drafts?.[testId];
+      if(stored?.ops?.[0]?.desc!=='Замена тестового узла')return {ok:false,reason:'draft was not stored',stored};
+
+      resetForm();
+      const select2=document.getElementById('fAppointment');
+      select2.value=testId;
+      appointmentSelected();
+
+      const restored=document.querySelector('#new .oprow');
+      const restoredDesc=restored?.querySelector('.desc')?.value||'';
+      const restoredWork=restored?.querySelector('.workv')?.value||'';
+      const status=document.getElementById('orderDraftStatus')?.textContent||'';
+      return {
+        ok:restoredDesc==='Замена тестового узла'&&Number(restoredWork)===4321&&/восстановлен/i.test(status),
+        restoredDesc,restoredWork,status
+      };
+    }catch(e){
+      return {ok:false,reason:String(e?.stack||e)};
+    }finally{
+      window.db.appointments=window.db.appointments.filter(a=>a.id!==testId);
+      window.db.orders=window.db.orders.filter(o=>o.appointmentId!==testId);
+      if(before===null)localStorage.removeItem(storageKey);else localStorage.setItem(storageKey,before);
+    }
+  });
+  console.log('Order draft UI restore test:',JSON.stringify(orderDraftUi));
+  if(!orderDraftUi?.ok){
+    console.error('Order draft UI restore test failed.');
+    process.exitCode=1;
+  }
+
   if(pageErrors.length){
     console.error('Browser page errors:',pageErrors);
     process.exitCode=1;
