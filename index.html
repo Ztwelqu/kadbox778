@@ -6790,6 +6790,10 @@ const KAD_RELEASE={version:'v198',build:'2026.09.25.100'};
       if(/мкпп/.test(qn)&&/мкпп/.test(text))score+=18;
       if(/стабил/.test(qn)&&/стабил/.test(text))score+=22;
       if(/амортизатор/.test(qn)&&/амортизатор/.test(text))score+=22;
+      if(/stage\s*1|стейдж\s*1/.test(qn)&&/stage\s*1/i.test(text))score+=24;
+      if(/stage\s*2|стейдж\s*2/.test(qn)&&/stage\s*2/i.test(text))score+=28;
+      if(/турб/.test(qn)){if(/турб/.test(text))score+=30;if(/атмосфер/.test(text))score-=35}
+      if(/атмосфер/.test(qn)){if(/атмосфер/.test(text))score+=30;if(/турб/.test(text))score-=35}
       if(!best||score>best.score)best={item,score,overlap};
     });
     return best&&best.score>=18?best:null;
