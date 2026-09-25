@@ -6623,7 +6623,7 @@ const KAD_RELEASE={version:'v194',build:'2026.09.25.96'};
     const hist=historyFor(item,car);
     const histMedian=quickMedian(hist.slice(0,5).map(x=>x.price))*qty;
     const estimate=quickRound(histMedian>0?(base*.4+histMedian*.6):base);
-    let low=quickRound(Math.min(m.min*qty*vf.factor,estimate*.85));
+    let low=quickRound(Math.max(m.min*qty*vf.factor,estimate*.8));
     let high=quickRound(Math.max(m.max*qty*vf.factor,estimate*1.2));
     if(low>estimate)low=quickRound(estimate*.85);
     if(high<estimate)high=quickRound(estimate*1.2);
