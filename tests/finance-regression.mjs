@@ -235,6 +235,58 @@ try{
     process.exitCode=1;
   }
 
+  const cloudMetaDedupe = await page.evaluate(async()=>{
+    const originalApi=window.crmApiCall;
+    let calls=0;
+    try{
+      window.crmApiCall=async(action)=>{
+        if(action==='meta'){
+          calls++;
+          await new Promise(r=>setTimeout(r,40));
+          return {updatedAt:'test-meta-'+calls};
+        }
+        return originalApi(action);
+      };
+      const concurrent=await Promise.all([
+        window.cloudFetchUpdatedAt({maxAgeMs:0}),
+        window.cloudFetchUpdatedAt({maxAgeMs:0})
+      ]);
+      const afterConcurrent=calls;
+      const cached=await window.cloudFetchUpdatedAt();
+      const afterCached=calls;
+      await new Promise(r=>setTimeout(r,1300));
+      const refreshed=await window.cloudFetchUpdatedAt();
+      return {
+        ok:afterConcurrent===1&&afterCached===1&&calls===2&&concurrent[0]===concurrent[1]&&cached===concurrent[0]&&refreshed!==cached,
+        calls,afterConcurrent,afterCached,concurrent,cached,refreshed
+      };
+    }catch(e){
+      return {ok:false,reason:String(e?.stack||e),calls};
+    }finally{
+      window.crmApiCall=originalApi;
+    }
+  });
+  console.log('Cloud metadata dedupe/cache test:',JSON.stringify(cloudMetaDedupe));
+  if(!cloudMetaDedupe?.ok){
+    console.error('Cloud metadata dedupe/cache test failed.');
+    process.exitCode=1;
+  }
+
+  const source=await readFile(join(root,'index.html'),'utf8');
+  const cloudPollingPolicy={
+    mainFiveSeconds:/const CLOUD_POLL_MS=5000;/.test(source)&&/setInterval\(runCloudPollIfVisible,CLOUD_POLL_MS\)/.test(source),
+    cashFiveSeconds:/setInterval\(runCashSyncIfVisible,5000\)/.test(source),
+    mainHidden:/if\(document\.hidden\|\|!validAuthSession\(\)/.test(source),
+    cashHidden:/async function syncNow\(\)\{if\(document\.hidden\|\|currentRole/.test(source),
+    resumeOnVisible:(source.match(/document\.addEventListener\('visibilitychange'/g)||[]).length>=2
+  };
+  cloudPollingPolicy.ok=Object.values(cloudPollingPolicy).every(Boolean);
+  console.log('Cloud polling policy test:',JSON.stringify(cloudPollingPolicy));
+  if(!cloudPollingPolicy.ok){
+    console.error('Cloud polling policy test failed.');
+    process.exitCode=1;
+  }
+
   if(pageErrors.length){
     console.error('Browser page errors:',pageErrors);
     process.exitCode=1;
