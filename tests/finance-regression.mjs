@@ -273,6 +273,22 @@ try{
   }
 
   const source=await readFile(join(root,'index.html'),'utf8');
+  const releaseFile=JSON.parse(await readFile(join(root,'version.json'),'utf8'));
+  const releaseMatch=source.match(/const KAD_RELEASE=\{version:'([^']+)',build:'([^']+)'\};/);
+  const releaseMetadata={
+    sourceVersion:releaseMatch?.[1]||'',
+    sourceBuild:releaseMatch?.[2]||'',
+    fileVersion:String(releaseFile?.version||''),
+    fileBuild:String(releaseFile?.build||''),
+    sidebarMatches:source.includes('id="appVersionStatus">CRM '+String(releaseFile?.version||'')+' · build '+String(releaseFile?.build||'')+'</div>'),
+    backupUsesRelease:/appVersion:KAD_RELEASE\.version/.test(source)
+  };
+  releaseMetadata.ok=!!releaseMatch&&releaseMetadata.sourceVersion===releaseMetadata.fileVersion&&releaseMetadata.sourceBuild===releaseMetadata.fileBuild&&releaseMetadata.sidebarMatches&&releaseMetadata.backupUsesRelease;
+  console.log('Release metadata consistency test:',JSON.stringify(releaseMetadata));
+  if(!releaseMetadata.ok){
+    console.error('Release metadata consistency test failed.');
+    process.exitCode=1;
+  }
   const cloudPollingPolicy={
     mainFiveSeconds:/const CLOUD_POLL_MS=5000;/.test(source)&&/setInterval\(runCloudPollIfVisible,CLOUD_POLL_MS\)/.test(source),
     cashFiveSeconds:/setInterval\(runCashSyncIfVisible,5000\)/.test(source),
