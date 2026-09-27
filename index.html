@@ -2093,15 +2093,31 @@ window.cloudUseRemoteVersion=function(){
   });
 };
 function cloudConfigured(){return !!(CLOUD_CONFIG.url&&CLOUD_CONFIG.anonKey)}
-async function cloudFetchUpdatedAt(){
+const CLOUD_META_CACHE_MS=1200;
+let cloudMetaRequest=null,cloudMetaUpdatedAt='',cloudMetaFetchedAt=0;
+function cloudRememberUpdatedAt(updatedAt){
+  cloudMetaUpdatedAt=updatedAt||'';
+  cloudMetaFetchedAt=Date.now();
+  return cloudMetaUpdatedAt;
+}
+async function cloudFetchUpdatedAt(options={}){
   if(!cloudConfigured()) return '';
-  const data=await crmApiCall('meta');
-  return data?.updatedAt||'';
+  const requestedMaxAge=Number(options.maxAgeMs);
+  const maxAge=Number.isFinite(requestedMaxAge)?Math.max(0,requestedMaxAge):CLOUD_META_CACHE_MS;
+  const now=Date.now();
+  if(maxAge>0&&cloudMetaFetchedAt&&now-cloudMetaFetchedAt<=maxAge)return cloudMetaUpdatedAt;
+  if(cloudMetaRequest)return cloudMetaRequest;
+  cloudMetaRequest=crmApiCall('meta')
+    .then(data=>cloudRememberUpdatedAt(data?.updatedAt||''))
+    .finally(()=>{cloudMetaRequest=null});
+  return cloudMetaRequest;
 }
 async function cloudFetchRow(){
   if(!cloudConfigured()) return null;
   const data=await crmApiCall('read');
-  return data?{payload:data.payload,updated_at:data.updatedAt||''}:null;
+  if(!data)return null;
+  const updatedAt=cloudRememberUpdatedAt(data.updatedAt||'');
+  return {payload:data.payload,updated_at:updatedAt};
 }
 async function cloudFetchState(){
   const row=await cloudFetchRow();
@@ -2111,7 +2127,7 @@ async function cloudPutState(data,options={}){
   if(!cloudConfigured()) return '';
   const expected=Object.prototype.hasOwnProperty.call(options,'expectedUpdatedAt')?options.expectedUpdatedAt:cloudMainUpdatedAt;
   const result=await crmWriteCall({payload:clone(data),preserveCash:options.preserveCash!==false,expectedUpdatedAt:expected||''});
-  return result?.updatedAt||'';
+  return cloudRememberUpdatedAt(result?.updatedAt||'');
 }
 async function cloudSaveQueued(){
   if(!cloudConfigured()) return;
@@ -3925,6 +3941,8 @@ document.querySelectorAll('.tab').forEach(b=>b.onclick=()=>{document.querySelect
   let cloudLastUpdated='';
   let cloudLastLocalHash='';
   let cloudDirty=false;
+  let cloudPollBusy=false;
+  const CLOUD_POLL_MS=5000;
   const hashState=o=>{try{return JSON.stringify(o)}catch(e){return ''}};
 
   // Remove local-only wording and make logout prominent.
@@ -3937,11 +3955,12 @@ document.querySelectorAll('.tab').forEach(b=>b.onclick=()=>{document.querySelect
   if(top && apTop) top.before(apTop);
 
   // ===== Cloud: lightweight polling =====
-  // Каждые 2.5 секунды проверяем ТОЛЬКО updated_at (несколько десятков байт).
+  // Активная вкладка проверяет только updated_at раз в 5 секунд.
   // Полный payload загружается лишь тогда, когда отметка времени реально изменилась.
-  // Это сохраняет быструю синхронизацию между компьютерами, но резко снижает Egress.
+  // Скрытая вкладка сеть не опрашивает и синхронизируется сразу после возврата.
   async function cloudPoll(){
-    if(!validAuthSession()||!cloudConfigured()||cloudBusy||cloudDirty||cloudIsDirty()) return;
+    if(document.hidden||!validAuthSession()||!cloudConfigured()||cloudBusy||cloudDirty||cloudIsDirty()||cloudPollBusy) return;
+    cloudPollBusy=true;
     try{
       const remoteUpdatedAt=await cloudFetchUpdatedAt();
       if(!remoteUpdatedAt||remoteUpdatedAt===cloudLastUpdated) return;
@@ -3990,6 +4009,7 @@ document.querySelectorAll('.tab').forEach(b=>b.onclick=()=>{document.querySelect
       const st=document.getElementById('saveState');
       if(st) st.textContent='● Синхронизировано с облаком';
     }catch(e){console.error('cloud poll',e);}
+    finally{cloudPollBusy=false;}
   }
   let cloudLastCloudHash='';
   let cloudSaveRevision=0;
@@ -4062,9 +4082,11 @@ document.querySelectorAll('.tab').forEach(b=>b.onclick=()=>{document.querySelect
     cloudQueue=task.then(()=>undefined,()=>undefined);
     return task;
   };
-  if(validAuthSession())setTimeout(()=>cloudPoll(),1200);
-  document.addEventListener('kad-auth-ready',()=>setTimeout(()=>cloudPoll(),350),{once:true});
-  setInterval(cloudPoll,2500);
+  const runCloudPollIfVisible=()=>{if(!document.hidden)cloudPoll()};
+  if(validAuthSession())setTimeout(runCloudPollIfVisible,1200);
+  document.addEventListener('kad-auth-ready',()=>setTimeout(runCloudPollIfVisible,350),{once:true});
+  setInterval(runCloudPollIfVisible,CLOUD_POLL_MS);
+  document.addEventListener('visibilitychange',()=>{if(!document.hidden)cloudPoll()});
 
   // ===== Print order date picker =====
   window.printOrder=function(id){
@@ -5807,7 +5829,7 @@ const KAD_RELEASE={version:'v198',build:'2026.09.25.100'};
  async function readCloudLedgerRow(){if(typeof cloudFetchRow!=='function')throw new Error('Облачный клиент недоступен');const row=await cloudFetchRow();return {ledger:normalizeCloud(row?.payload||{}),updatedAt:row?.updated_at||''}}
  async function writeCloudLedger(ledger,attempt=0){if(typeof cloudFetchRow!=='function'||typeof cloudPutState!=='function')throw new Error('Облачный клиент недоступен');const row=await cloudFetchRow(),payload=clone(row?.payload||{}),cur=normalizeCloud(payload),merged={events:mergeEvents(cur.events,ledger.events),trashEvents:mergeEvents(cur.trashEvents,ledger.trashEvents)};payload[CASH_CLOUD_KEY]={version:3,events:merged.events,trashEvents:merged.trashEvents};try{const updatedAt=await cloudPutState(payload,{preserveCash:false,expectedUpdatedAt:row?.updated_at||''});return {merged,updatedAt}}catch(e){if(e?.code==='SYNC_CONFLICT'&&attempt<2)return writeCloudLedger(ledger,attempt+1);throw e}}
  async function bootCloud(){if(typeof cloudConfigured!=='function'||!cloudConfigured()){status('● Касса: локальный режим');return}cashCloudBusy=true;try{const row=await readCloudLedgerRow();const remote=row.ledger;cashCloudUpdatedAt=row.updatedAt||'';cashEvents=mergeEvents(cashEvents,remote.events);cashTrashEvents=mergeEvents(cashTrashEvents,remote.trashEvents);persistCash();const mergedNow={events:cashEvents,trashEvents:cashTrashEvents};if(JSON.stringify(remote)!==JSON.stringify(mergedNow)){const saved=await writeCloudLedger(mergedNow);cashEvents=saved.merged.events;cashTrashEvents=saved.merged.trashEvents;cashCloudUpdatedAt=saved.updatedAt||cashCloudUpdatedAt;persistCash()}cashCloudHash=JSON.stringify(localPayload());cashCloudReady=true;status('● Касса синхронизирована с облаком');renderCash();renderCashTrashBridge()}catch(e){console.error('cash cloud boot',e);status('⚠ Ошибка синхронизации кассы',true)}finally{cashCloudBusy=false}}
- async function syncNow(){if(currentRole!=='admin'||typeof cloudConfigured!=='function'||!cloudConfigured()||!cashCloudReady||cashCloudBusy)return;cashCloudBusy=true;try{const remoteUpdatedAt=await cloudFetchUpdatedAt();if(!remoteUpdatedAt||remoteUpdatedAt===cashCloudUpdatedAt){status('● Касса синхронизирована с облаком');return}const row=await readCloudLedgerRow();const remote=row.ledger;cashCloudUpdatedAt=row.updatedAt||remoteUpdatedAt;const localBefore={events:cashEvents,trashEvents:cashTrashEvents};const merged={events:mergeEvents(remote.events,cashEvents),trashEvents:mergeEvents(remote.trashEvents,cashTrashEvents)};const mergedHash=JSON.stringify(merged),remoteHash=JSON.stringify(remote),localHash=JSON.stringify(localBefore);if(mergedHash!==localHash){cashEvents=merged.events;cashTrashEvents=merged.trashEvents;persistCash();renderCash();renderCashTrashBridge()}if(mergedHash!==remoteHash){const saved=await writeCloudLedger(merged);cashEvents=saved.merged.events;cashTrashEvents=saved.merged.trashEvents;cashCloudUpdatedAt=saved.updatedAt||cashCloudUpdatedAt;persistCash()}cashCloudHash=JSON.stringify(localPayload());status('● Касса синхронизирована с облаком')}catch(e){console.error('cash cloud sync',e);status('⚠ Ошибка синхронизации кассы',true)}finally{cashCloudBusy=false}}
+ async function syncNow(){if(document.hidden||currentRole!=='admin'||typeof cloudConfigured!=='function'||!cloudConfigured()||!cashCloudReady||cashCloudBusy)return;cashCloudBusy=true;try{const remoteUpdatedAt=await cloudFetchUpdatedAt();if(!remoteUpdatedAt||remoteUpdatedAt===cashCloudUpdatedAt){status('● Касса синхронизирована с облаком');return}const row=await readCloudLedgerRow();const remote=row.ledger;cashCloudUpdatedAt=row.updatedAt||remoteUpdatedAt;const localBefore={events:cashEvents,trashEvents:cashTrashEvents};const merged={events:mergeEvents(remote.events,cashEvents),trashEvents:mergeEvents(remote.trashEvents,cashTrashEvents)};const mergedHash=JSON.stringify(merged),remoteHash=JSON.stringify(remote),localHash=JSON.stringify(localBefore);if(mergedHash!==localHash){cashEvents=merged.events;cashTrashEvents=merged.trashEvents;persistCash();renderCash();renderCashTrashBridge()}if(mergedHash!==remoteHash){const saved=await writeCloudLedger(merged);cashEvents=saved.merged.events;cashTrashEvents=saved.merged.trashEvents;cashCloudUpdatedAt=saved.updatedAt||cashCloudUpdatedAt;persistCash()}cashCloudHash=JSON.stringify(localPayload());status('● Касса синхронизирована с облаком')}catch(e){console.error('cash cloud sync',e);status('⚠ Ошибка синхронизации кассы',true)}finally{cashCloudBusy=false}}
  function queueSave(){if(typeof cloudConfigured!=='function'||!cloudConfigured())return;const localSnapshot={events:cashEvents.slice(),trashEvents:cashTrashEvents.slice()};cashCloudQueue=cashCloudQueue.then(async()=>{try{const saved=await writeCloudLedger(localSnapshot);cashEvents=mergeEvents(cashEvents,saved.merged.events);cashTrashEvents=mergeEvents(cashTrashEvents,saved.merged.trashEvents);cashCloudUpdatedAt=saved.updatedAt||cashCloudUpdatedAt;persistCash();cashCloudHash=JSON.stringify(localPayload());cashCloudReady=true;status('● Касса синхронизирована с облаком');renderCash();renderCashTrashBridge()}catch(e){console.error('cash queue',e);status('⚠ Ошибка синхронизации кассы',true)}})}
  function addEvent(action,item){cashEvents=mergeEvents(cashEvents,[{id:uid(),action,at:Date.now(),item:item||null}]);persistCash();renderCash();queueSave()}
  function addTrashEvent(action,item){cashTrashEvents=mergeEvents(cashTrashEvents,[{id:uid(),action,at:Date.now(),item:item||null}]);persistCash();renderCashTrashBridge();if(typeof window.updateTrashBadge==='function')window.updateTrashBadge();queueSave()}
@@ -5957,7 +5979,15 @@ const KAD_RELEASE={version:'v198',build:'2026.09.25.100'};
    const html=cashTrashMarkup();if(html)box.insertAdjacentHTML('beforeend',html)
  }
  window.renderCashTrashBridge=renderCashTrashBridge;
- loadCash();renderCash();if(typeof window.updateTrashBadge==='function')window.updateTrashBadge();const btn=document.querySelector('[data-page="cash"]');if(btn)btn.addEventListener('click',()=>{refreshAppts();renderCash();syncNow()});const trashBtn=document.querySelector('[data-page="trash"]');if(trashBtn)trashBtn.addEventListener('click',renderCashTrashBridge);window.kadPauseCashSyncForRestore=function(){cashCloudReady=false;cashCloudBusy=true;status('⏸ Касса: восстановление backup')};window.kadResumeCashSyncAfterRestore=function(){cashCloudBusy=false;cashCloudReady=true;status('● Касса синхронизируется с облаком')};setInterval(syncNow,2500);if(validAuthSession()&&currentRole==='admin')bootCloud();else document.addEventListener('kad-auth-ready',()=>{if(currentRole==='admin')bootCloud()},{once:true});
+ loadCash();renderCash();if(typeof window.updateTrashBadge==='function')window.updateTrashBadge();
+ const btn=document.querySelector('[data-page="cash"]');if(btn)btn.addEventListener('click',()=>{refreshAppts();renderCash();syncNow()});
+ const trashBtn=document.querySelector('[data-page="trash"]');if(trashBtn)trashBtn.addEventListener('click',renderCashTrashBridge);
+ window.kadPauseCashSyncForRestore=function(){cashCloudReady=false;cashCloudBusy=true;status('⏸ Касса: восстановление backup')};
+ window.kadResumeCashSyncAfterRestore=function(){cashCloudBusy=false;cashCloudReady=true;status('● Касса синхронизируется с облаком')};
+ const runCashSyncIfVisible=()=>{if(!document.hidden)syncNow()};
+ setInterval(runCashSyncIfVisible,5000);
+ document.addEventListener('visibilitychange',()=>{if(!document.hidden)syncNow()});
+ if(validAuthSession()&&currentRole==='admin')bootCloud();else document.addEventListener('kad-auth-ready',()=>{if(currentRole==='admin')bootCloud()},{once:true});
 })();
 </script>
 <script id="v184-form-drafts">
