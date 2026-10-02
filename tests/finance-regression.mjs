@@ -290,11 +290,15 @@ try{
     process.exitCode=1;
   }
   const cloudPollingPolicy={
-    mainFiveSeconds:/const CLOUD_POLL_MS=5000;/.test(source)&&/setInterval\(runCloudPollIfVisible,CLOUD_POLL_MS\)/.test(source),
-    cashFiveSeconds:/setInterval\(runCashSyncIfVisible,5000\)/.test(source),
-    mainHidden:/if\(document\.hidden\|\|!validAuthSession\(\)/.test(source),
-    cashHidden:/async function syncNow\(\)\{if\(document\.hidden\|\|currentRole/.test(source),
-    resumeOnVisible:(source.match(/document\.addEventListener\('visibilitychange'/g)||[]).length>=2
+    mainFiveSeconds:/const CLOUD_POLL_MS=5000;/.test(source)&&/setInterval\(runCloudPollIfActive,CLOUD_POLL_MS\)/.test(source),
+    cashFiveSeconds:/setInterval\(runCashSyncIfActive,5000\)/.test(source),
+    idleFifteenSeconds:/const CLOUD_IDLE_MS=15000;/.test(source),
+    activityEvents:/\['pointermove','pointerdown','keydown','input','change','wheel','touchstart'\]/.test(source),
+    mainHiddenAndIdle:/if\(document\.hidden\|\|cloudUserIdle\|\|!validAuthSession\(\)/.test(source),
+    cashUsesSharedIdle:/typeof window\.kadCloudUserActive==='function'&&!window\.kadCloudUserActive\(\)/.test(source),
+    wakeEvent:/document\.addEventListener\('kad-cloud-idle'/.test(source),
+    resumeOnVisible:(source.match(/document\.addEventListener\('visibilitychange'/g)||[]).length>=2,
+    publicIdleDiagnostic:/window\.kadCloudIdleMs=CLOUD_IDLE_MS;/.test(source)
   };
   cloudPollingPolicy.ok=Object.values(cloudPollingPolicy).every(Boolean);
   console.log('Cloud polling policy test:',JSON.stringify(cloudPollingPolicy));
